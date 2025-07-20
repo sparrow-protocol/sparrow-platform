@@ -8,12 +8,6 @@
     "lint": "next lint",
     "start": "next start"
   },
-  "overrides": {
-    "react-day-picker": {
-      "react": "^18.0.0",
-      "react-dom": "^18.0.0"
-    }
-  },
   "dependencies": {
     "@abstract-foundation/agw-client": "latest",
     "@ai-sdk/groq": "^0.0.16",
