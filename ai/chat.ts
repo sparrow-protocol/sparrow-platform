@@ -1,54 +1,117 @@
+import { createAI, getMutableAIState } from "ai/rsc"
 import { generateText, streamText } from "ai"
 import { openai } from "@ai-sdk/openai"
-import type { CoreMessage } from "ai"
-import { FAL_KEY } from "@/app/lib/constants"
-import fal from "@fal-ai/serverless"
+import { createStreamableValue } from "ai/rsc"
 
-export async function generateAIResponse(messages: CoreMessage[]) {
-  const { text } = await generateText({
-    model: openai("gpt-4o"),
-    messages,
-  })
-  return text
-}
+export async function submitUserMessage(content: string) {
+  "use server"
 
-export async function streamAIResponse(messages: CoreMessage[]) {
-  const result = await streamText({
-    model: openai("gpt-4o"),
-    messages,
-  })
-  return result.toReadableStream()
-}
+  const aiState = getMutableAIState()
 
-export async function generateImageWithFal(prompt: string) {
-  if (!FAL_KEY) {
-    throw new Error("FAL_KEY is not set. Please set it in your environment variables.")
-  }
-
-  try {
-    const result = await fal.subscribe("fal-ai/stable-diffusion-v3-medium", {
-      input: {
-        prompt,
-        num_inference_steps: 25,
-        guidance_scale: 7.5,
-        seed: 0,
-        sync_mode: true,
+  aiState.update({
+    ...aiState.get(),
+    messages: [
+      ...aiState.get().messages,
+      {
+        id: Date.now(),
+        role: "user",
+        content,
       },
-      logs: true,
-      onResult: (r: any) => {
-        if (r.images && r.images.length > 0) {
-          console.log("Image generated:", r.images[0].url)
-        }
+    ],
+  })
+
+  const ui = createStreamableValue()
+  const text = createStreamableValue()
+  ;(async () => {
+    const result = await streamText({
+      model: openai("gpt-4o"),
+      messages: [
+        ...aiState.get().messages.map((message: any) => ({
+          role: message.role,
+          content: message.content,
+          name: message.name,
+        })),
+      ],
+      tools: {
+        // get_current_weather: {
+        //   description: 'Get the current weather for a city',
+        //   parameters: z.object({
+        //     city: z.string().describe('The city to get the weather for'),
+        //   }),
+        //   execute: async ({ city }) => {
+        //     return {
+        //       city,
+        //       temperature: 22,
+        //       unit: 'celsius',
+        //     }
+        //   },
+        // },
       },
     })
 
-    if (result.images && result.images.length > 0) {
-      return result.images[0].url
-    } else {
-      throw new Error("No image was generated.")
+    for await (const delta of result.fullStream) {
+      if (delta.type === "text-delta") {
+        text.update(delta.text)
+      }
     }
+
+    aiState.update({
+      ...aiState.get(),
+      messages: [
+        ...aiState.get().messages,
+        {
+          id: Date.now(),
+          role: "assistant",
+          content: text.value,
+        },
+      ],
+    })
+
+    ui.done()
+    text.done()
+  })()
+
+  return {
+    id: Date.now(),
+    display: ui.value,
+  }
+}
+
+export async function generateChatResponse(prompt: string): Promise<string> {
+  try {
+    const { text } = await generateText({
+      model: openai("gpt-4o"),
+      prompt: prompt,
+    })
+    return text
   } catch (error) {
-    console.error("Error generating image with Fal:", error)
+    console.error("Error generating chat response:", error)
+    return "I'm sorry, I couldn't generate a response at this time."
+  }
+}
+
+export async function streamChatResponse(prompt: string) {
+  try {
+    const result = await streamText({
+      model: openai("gpt-4o"),
+      prompt: prompt,
+    })
+    return result.textStream
+  } catch (error) {
+    console.error("Error streaming chat response:", error)
     throw error
   }
 }
+
+export const AI = createAI({
+  actions: {
+    submitUserMessage,
+    generateChatResponse,
+    streamChatResponse,
+  },
+  initialAIState: {
+    chatId: Date.now(),
+    messages: [],
+  },
+  initialUIState: [],
+})

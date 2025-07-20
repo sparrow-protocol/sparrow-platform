@@ -1,284 +1,226 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react"
-import { useWallet, useConnection } from "@solana/wallet-adapter-react"
-import { PublicKey, TransactionMessage, VersionedTransaction } from "@solana/web3.js"
-import { ArrowDown, Loader2 } from "lucide-react"
-import { useQuery } from "@tanstack/react-query"
+import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { toast } from "@/components/ui/use-toast"
+import { toast } from "sonner"
+import { usePrivy } from "@privy-io/react-auth"
+import { useWallets } from "@privy-io/react-auth/wallets"
+import { PublicKey, Connection } from "@solana/web3.js"
 import {
-  fetchJupiterQuote,
-  fetchJupiterSwapInstructions,
+  fetchJupiterTokenList,
+  getJupiterQuote,
+  getJupiterSwapInstructions,
   sendVersionedTransaction,
-  fetchAllJupiterTokens,
-} from "@/app/lib/defi-api"
-import type { JupiterToken } from "@/app/types/jupiter"
-import { useEmbeddedWallet } from "@/app/hooks/use-embedded-wallet"
+} from "@/app/lib/jupiter/jupiter-api"
+import type { JupiterToken, QuoteResponse } from "@/app/types/jupiter"
+import { CommandMenu } from "@/components/command-menu"
+import Image from "next/image"
 import { formatNumber } from "@/app/lib/format/number"
+import { Loader2 } from "lucide-react"
+
+const connection = new Connection(process.env.NEXT_PUBLIC_SOLANA_RPC_URL!)
 
 export function SwapForm() {
-  const { connection } = useConnection()
-  const { publicKey: solanaPublicKey, signTransaction } = useWallet()
-  const { embeddedWallet, embeddedWalletAddress } = useEmbeddedWallet()
+  const { user } = usePrivy()
+  const { wallets } = useWallets()
+  const embeddedWallet = wallets.find((wallet) => wallet.walletClientType === "privy")
+  const publicKey = embeddedWallet ? new PublicKey(embeddedWallet.address) : null
 
-  const userPublicKey = useMemo(() => {
-    if (embeddedWalletAddress) return new PublicKey(embeddedWalletAddress)
-    if (solanaPublicKey) return solanaPublicKey
-    return null
-  }, [embeddedWalletAddress, solanaPublicKey])
-
-  const [inputMint, setInputMint] = useState("So11111111111111111111111111111111111111112") // SOL
-  const [outputMint, setOutputMint] = useState("EPjFWdd5AufqSSqeM2qN1xzybapTVGSSmpPackCwEKnM") // USDC
-  const [inputAmount, setInputAmount] = useState("0.1")
-  const [outputAmount, setOutputAmount] = useState("0")
+  const [tokens, setTokens] = useState<JupiterToken[]>([])
+  const [inputToken, setInputToken] = useState<JupiterToken | null>(null)
+  const [outputToken, setOutputToken] = useState<JupiterToken | null>(null)
+  const [inputAmount, setInputAmount] = useState<string>("")
+  const [quote, setQuote] = useState<QuoteResponse | null>(null)
   const [loading, setLoading] = useState(false)
-  const [quote, setQuote] = useState<any>(null)
-  const slippageBps = 50 // 0.5% slippage
-
-  const { data: tokens, isLoading: isLoadingTokens } = useQuery<JupiterToken[]>({
-    queryKey: ["jupiterTokens"],
-    queryFn: fetchAllJupiterTokens, // Use the new API call
-    staleTime: 1000 * 60 * 60, // 1 hour
-  })
-
-  const inputToken = useMemo(() => tokens?.find((t) => t.address === inputMint), [tokens, inputMint])
-  const outputToken = useMemo(() => tokens?.find((t) => t.address === outputMint), [tokens, outputMint])
+  const [fetchingQuote, setFetchingQuote] = useState(false)
 
   useEffect(() => {
-    const getQuote = async () => {
-      if (inputAmount && Number.parseFloat(inputAmount) > 0 && inputToken && outputToken) {
-        setLoading(true)
-        try {
-          const fetchedQuote = await fetchJupiterQuote(
-            inputMint,
-            outputMint,
-            (Number.parseFloat(inputAmount) * Math.pow(10, inputToken.decimals)).toString(),
-            slippageBps,
-          )
-          setQuote(fetchedQuote)
-          if (fetchedQuote) {
-            setOutputAmount(
-              formatNumber(Number.parseFloat(fetchedQuote.outAmount) / Math.pow(10, outputToken.decimals), 6),
-            )
-          } else {
-            setOutputAmount("0")
-          }
-        } catch (error) {
-          console.error("Error fetching quote:", error)
-          setOutputAmount("0")
-          toast({
-            title: "Error",
-            description: "Failed to fetch swap quote. Please try again.",
-            variant: "destructive",
-          })
-        } finally {
-          setLoading(false)
-        }
+    const loadTokens = async () => {
+      const fetchedTokens = await fetchJupiterTokenList()
+      setTokens(fetchedTokens)
+      // Set default tokens (e.g., SOL and USDC)
+      setInputToken(fetchedTokens.find((token) => token.symbol === "SOL") || null)
+      setOutputToken(fetchedTokens.find((token) => token.symbol === "USDC") || null)
+    }
+    loadTokens()
+  }, [])
+
+  useEffect(() => {
+    const fetchQuote = async () => {
+      if (inputToken && outputToken && inputAmount && Number.parseFloat(inputAmount) > 0 && publicKey) {
+        setFetchingQuote(true)
+        const amountInLamports = Math.floor(Number.parseFloat(inputAmount) * 10 ** inputToken.decimals)
+        const fetchedQuote = await getJupiterQuote(inputToken.address, outputToken.address, amountInLamports)
+        setQuote(fetchedQuote)
+        setFetchingQuote(false)
       } else {
         setQuote(null)
-        setOutputAmount("0")
       }
     }
     const handler = setTimeout(() => {
-      getQuote()
-    }, 500) // Debounce for 500ms
+      fetchQuote()
+    }, 500) // Debounce fetching quote
     return () => clearTimeout(handler)
-  }, [inputAmount, inputMint, outputMint, inputToken, outputToken, slippageBps])
+  }, [inputToken, outputToken, inputAmount, publicKey])
 
   const handleSwap = async () => {
-    if (!userPublicKey || !quote || !inputToken || !outputToken) {
-      toast({
-        title: "Error",
-        description: "Please connect your wallet, enter amounts, and select tokens.",
-        variant: "destructive",
-      })
+    if (!publicKey || !embeddedWallet) {
+      toast.error("Please connect your wallet.")
+      return
+    }
+    if (!quote) {
+      toast.error("No quote available. Please check your input and selected tokens.")
       return
     }
 
     setLoading(true)
     try {
-      const { swapInstruction, cleanupInstruction, setupInstructions } = await fetchJupiterSwapInstructions(
-        quote,
-        userPublicKey,
-      )
+      const { swapInstruction } = await getJupiterSwapInstructions(quote, publicKey)
 
-      const blockhash = await connection.getLatestBlockhash()
-      const messageV0 = new TransactionMessage({
-        payerKey: userPublicKey,
-        recentBlockhash: blockhash.blockhash,
-        instructions: [...setupInstructions, swapInstruction, cleanupInstruction].filter(Boolean),
-      }).compileToLegacyMessage()
-
-      const transaction = new VersionedTransaction(messageV0)
-
-      let signedTransaction: VersionedTransaction
-
-      if (embeddedWallet) {
-        // Sign with Privy embedded wallet
-        signedTransaction = await embeddedWallet.signTransaction(transaction)
-      } else if (signTransaction) {
-        // Sign with external Solana wallet adapter
-        signedTransaction = await signTransaction(transaction)
-      } else {
-        throw new Error("No signing method available.")
+      if (!swapInstruction) {
+        toast.error("Failed to get swap instructions.")
+        return
       }
 
-      const txid = await sendVersionedTransaction(signedTransaction)
+      const signature = await sendVersionedTransaction(
+        connection,
+        embeddedWallet,
+        swapInstruction.serializedTransaction,
+      )
 
-      toast({
-        title: "Swap Successful!",
-        description: `Transaction ID: ${txid}`,
-      })
+      if (signature) {
+        toast.success("Swap successful!", {
+          description: `Transaction Signature: ${signature}`,
+        })
+        setInputAmount("")
+        setQuote(null)
+      } else {
+        toast.error("Swap failed.")
+      }
     } catch (error) {
-      console.error("Swap error:", error)
-      toast({
-        title: "Error",
-        description: "Failed to execute swap. Please try again.",
-        variant: "destructive",
+      console.error("Error performing swap:", error)
+      toast.error("An unexpected error occurred during swap.", {
+        description: (error as Error).message,
       })
     } finally {
       setLoading(false)
     }
   }
 
-  const handleFlipTokens = () => {
-    setInputMint(outputMint)
-    setOutputMint(inputMint)
-    setInputAmount(outputAmount)
-  }
+  const estimatedOutputAmount = useMemo(() => {
+    if (!quote || !outputToken) return "0"
+    return (Number.parseInt(quote.outAmount) / 10 ** outputToken.decimals).toFixed(outputToken.decimals)
+  }, [quote, outputToken])
+
+  const estimatedFee = useMemo(() => {
+    if (!quote) return "0"
+    // Jupiter quote provides fees in lamports, convert to SOL
+    return (Number.parseInt(quote.totalFees) / 10 ** 9).toFixed(6) // SOL has 9 decimals
+  }, [quote])
 
   return (
     <Card className="w-full max-w-md">
       <CardHeader>
         <CardTitle>Token Swap</CardTitle>
-        <CardDescription>Exchange tokens on Solana using Jupiter Aggregator.</CardDescription>
+        <CardDescription>Exchange tokens on Solana with the best rates.</CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <div>
-          <Label htmlFor="input-amount">You pay</Label>
-          <div className="flex items-center space-x-2">
-            <Input
-              id="input-amount"
-              type="number"
-              placeholder="0.0"
-              value={inputAmount}
-              onChange={(e) => setInputAmount(e.target.value)}
-              min="0"
-              step="any"
-              className="flex-1"
-            />
-            <Select value={inputMint} onValueChange={setInputMint} disabled={isLoadingTokens}>
-              <SelectTrigger className="w-[120px]">
-                <SelectValue placeholder="Select token" />
-              </SelectTrigger>
-              <SelectContent>
-                {isLoadingTokens ? (
-                  <SelectItem value="loading" disabled>
-                    <div className="flex items-center">
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading...
-                    </div>
-                  </SelectItem>
+      <CardContent className="space-y-6">
+        <div className="space-y-4">
+          <div>
+            <Label htmlFor="inputAmount">You pay</Label>
+            <div className="flex items-center gap-2">
+              <Input
+                id="inputAmount"
+                type="number"
+                placeholder="0.00"
+                value={inputAmount}
+                onChange={(e) => setInputAmount(e.target.value)}
+                disabled={loading}
+                min="0"
+                step="any"
+              />
+              <CommandMenu tokens={tokens} onSelectToken={setInputToken} className="w-32">
+                {inputToken ? (
+                  <div className="flex items-center gap-2">
+                    {inputToken.logoURI && (
+                      <Image
+                        src={inputToken.logoURI || "/placeholder.svg"}
+                        alt={inputToken.symbol}
+                        width={20}
+                        height={20}
+                        className="rounded-full"
+                      />
+                    )}
+                    <span>{inputToken.symbol}</span>
+                  </div>
                 ) : (
-                  tokens?.map((token) => (
-                    <SelectItem key={token.address} value={token.address}>
-                      <div className="flex items-center">
-                        {token.logoURI && (
-                          <img
-                            src={token.logoURI || "/placeholder.svg"}
-                            alt={token.symbol}
-                            className="mr-2 h-5 w-5 rounded-full"
-                          />
-                        )}
-                        {token.symbol}
-                      </div>
-                    </SelectItem>
-                  ))
+                  <span>Select Token</span>
                 )}
-              </SelectContent>
-            </Select>
+              </CommandMenu>
+            </div>
           </div>
-        </div>
 
-        <div className="flex justify-center">
-          <Button variant="outline" size="icon" onClick={handleFlipTokens} className="rounded-full bg-transparent">
-            <ArrowDown className="h-4 w-4" />
-            <span className="sr-only">Flip tokens</span>
-          </Button>
-        </div>
-
-        <div>
-          <Label htmlFor="output-amount">You receive</Label>
-          <div className="flex items-center space-x-2">
-            <Input id="output-amount" type="text" value={outputAmount} readOnly className="flex-1" disabled={loading} />
-            <Select value={outputMint} onValueChange={setOutputMint} disabled={isLoadingTokens}>
-              <SelectTrigger className="w-[120px]">
-                <SelectValue placeholder="Select token" />
-              </SelectTrigger>
-              <SelectContent>
-                {isLoadingTokens ? (
-                  <SelectItem value="loading" disabled>
-                    <div className="flex items-center">
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading...
-                    </div>
-                  </SelectItem>
+          <div>
+            <Label htmlFor="outputAmount">You receive</Label>
+            <div className="flex items-center gap-2">
+              <Input
+                id="outputAmount"
+                type="text"
+                placeholder="0.00"
+                value={fetchingQuote ? "Fetching quote..." : estimatedOutputAmount}
+                readOnly
+                disabled={true}
+              />
+              <CommandMenu tokens={tokens} onSelectToken={setOutputToken} className="w-32">
+                {outputToken ? (
+                  <div className="flex items-center gap-2">
+                    {outputToken.logoURI && (
+                      <Image
+                        src={outputToken.logoURI || "/placeholder.svg"}
+                        alt={outputToken.symbol}
+                        width={20}
+                        height={20}
+                        className="rounded-full"
+                      />
+                    )}
+                    <span>{outputToken.symbol}</span>
+                  </div>
                 ) : (
-                  tokens?.map((token) => (
-                    <SelectItem key={token.address} value={token.address}>
-                      <div className="flex items-center">
-                        {token.logoURI && (
-                          <img
-                            src={token.logoURI || "/placeholder.svg"}
-                            alt={token.symbol}
-                            className="mr-2 h-5 w-5 rounded-full"
-                          />
-                        )}
-                        {token.symbol}
-                      </div>
-                    </SelectItem>
-                  ))
+                  <span>Select Token</span>
                 )}
-              </SelectContent>
-            </Select>
+              </CommandMenu>
+            </div>
           </div>
         </div>
 
         {quote && (
-          <div className="text-sm text-muted-foreground space-y-1">
-            <p>
-              Price Impact:{" "}
-              <span className={Number.parseFloat(quote.priceImpactPct) > 0.05 ? "text-destructive" : ""}>
-                {(Number.parseFloat(quote.priceImpactPct) * 100).toFixed(2)}%
-              </span>
-            </p>
-            <p>Slippage: {(slippageBps / 100).toFixed(2)}%</p>
-            <div className="pt-2 border-t border-border mt-2">
-              <p className="font-medium">Transaction Summary:</p>
-              <p>
-                Minimum Received:{" "}
-                {outputToken &&
-                  formatNumber(
-                    Number.parseFloat(quote.outAmountWithSlippage) / Math.pow(10, outputToken.decimals),
-                    6,
-                  )}{" "}
+          <div className="space-y-2 text-sm text-muted-foreground">
+            <div className="flex justify-between">
+              <span>Minimum Received:</span>
+              <span>
+                {formatNumber(Number.parseInt(quote.outAmountWithSlippage) / 10 ** (outputToken?.decimals || 0))}{" "}
                 {outputToken?.symbol}
-              </p>
-              <p>
-                Estimated SOL Fee: ~0.000005 SOL{" "}
-                <span className="text-xs text-muted-foreground">(network fee estimate)</span>
-              </p>
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span>Slippage:</span>
+              <span>{quote.slippageBps / 100}%</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Estimated Fees:</span>
+              <span>{estimatedFee} SOL</span>
             </div>
           </div>
         )}
 
-        <Button onClick={handleSwap} className="w-full" disabled={loading || !quote || !userPublicKey}>
+        <Button onClick={handleSwap} disabled={loading || !quote || fetchingQuote} className="w-full">
           {loading ? (
             <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Swapping...
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Swapping...
             </>
           ) : (
             "Swap"

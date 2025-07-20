@@ -2,44 +2,62 @@
 
 import { useWallet } from "@solana/wallet-adapter-react"
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui"
-import { usePrivy } from "@privy-io/react-auth"
-import { useEmbeddedWallet } from "@/app/hooks/use-embedded-wallet"
-import { shortenAddress } from "@/app/lib/format"
 import { Button } from "@/components/ui/button"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { WalletIcon } from "lucide-react"
+import { usePrivy } from "@privy-io/react-auth"
+import { useWallets } from "@privy-io/react-auth/wallets"
+import { useEffect } from "react"
+import { toast } from "sonner"
 
 export function WalletStatus() {
   const { connected, publicKey } = useWallet()
-  const { embeddedWalletAddress } = useEmbeddedWallet()
-  const { authenticated } = usePrivy()
+  const { user, linkWallet, authenticated } = usePrivy()
+  const { wallets } = useWallets()
 
-  const displayAddress = embeddedWalletAddress || publicKey?.toBase58()
+  const embeddedWallet = wallets.find((wallet) => wallet.walletClientType === "privy")
 
-  if (!authenticated) {
-    return null // Only show wallet status if authenticated
-  }
-
-  if (!connected && !embeddedWalletAddress) {
-    return <WalletMultiButton />
-  }
+  useEffect(() => {
+    if (connected && publicKey && authenticated && !embeddedWallet) {
+      // Link the Solana wallet to Privy if not already linked
+      const linkSolanaWallet = async () => {
+        try {
+          await linkWallet({
+            solana: {
+              connector: async () => {
+                // This function should return a Privy-compatible Solana wallet provider.
+                // For wallet-adapter, you might need to adapt it or use Privy's direct Solana integration.
+                // For simplicity, we'll assume a direct linking mechanism or a custom connector.
+                // In a real app, you'd use Privy's `linkWallet` with the appropriate Solana wallet.
+                toast.info("Linking Solana wallet to Privy...")
+                return {
+                  address: publicKey.toBase58(),
+                  chainId: "solana:devnet", // Or mainnet-beta, testnet
+                  walletClientType: "external",
+                  provider: null, // Or the actual provider if available
+                }
+              },
+            },
+          })
+          toast.success("Solana wallet linked to Privy!")
+        } catch (error) {
+          console.error("Failed to link Solana wallet to Privy:", error)
+          toast.error("Failed to link Solana wallet to Privy.")
+        }
+      }
+      linkSolanaWallet()
+    }
+  }, [connected, publicKey, authenticated, embeddedWallet, linkWallet])
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="outline" className="flex items-center gap-2 bg-transparent">
-          <WalletIcon className="h-4 w-4" />
-          {displayAddress ? shortenAddress(displayAddress) : "Connect Wallet"}
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuItem className="cursor-default">
-          Connected: {displayAddress ? shortenAddress(displayAddress) : "N/A"}
-        </DropdownMenuItem>
-        <DropdownMenuItem>
-          <WalletMultiButton />
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <div className="flex items-center gap-2">
+      {connected ? (
+        <span className="text-sm font-medium text-green-500">
+          Connected: {publicKey?.toBase58().slice(0, 4)}...{publicKey?.toBase58().slice(-4)}
+        </span>
+      ) : (
+        <WalletMultiButton>
+          <Button>Connect Solana Wallet</Button>
+        </WalletMultiButton>
+      )}
+    </div>
   )
 }

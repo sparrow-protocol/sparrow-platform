@@ -1,28 +1,17 @@
-export type TransactionType = "transfer" | "swap" | "program_interaction" | "unknown"
-
-export type Instruction = {
-  programId: string
-  program?: string
-  type?: string
-  info?: any
-  data?: string
-  accounts?: string[]
-}
-
-export type TransactionDetails = {
+export type Transaction = {
   signature: string
-  timestamp: string
-  type: TransactionType
-  status: "success" | "failed"
-  fee: number // in SOL
-  block: number
-  slot: number
-  recentBlockhash: string
-  instructions: Instruction[]
-  logMessages: string[]
-  accountKeys: string[]
-  preBalances: number[]
-  postBalances: number[]
-  preTokenBalances: any[] // Simplified, can be more detailed
-  postTokenBalances: any[] // Simplified, can be more detailed
+  type: string
+  timestamp: Date
+  amount: number
+  token: {
+    address: string
+    name: string
+    symbol: string
+    logoURI?: string
+    decimals: number
+  }
+  from?: string
+  to?: string
+  fee?: number
+  status: "success" | "failed" | "pending"
 }

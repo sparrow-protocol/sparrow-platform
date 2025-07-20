@@ -1,63 +1,47 @@
-import { Connection, PublicKey, Keypair } from "@solana/web3.js"
-import { getOrCreateAssociatedTokenAccount, transfer } from "@solana/spl-token"
+import { Connection, PublicKey, Transaction, SystemProgram, LAMPORTS_PER_SOL } from "@solana/web3.js"
+import { Keypair } from "@solana/web3.js"
 import { NextResponse } from "next/server"
 
-const FAUCET_PRIVATE_KEY = process.env.FAUCET_PRIVATE_KEY
-const HELIUS_RPC_URL = process.env.HELIUS_RPC_URL
-
-if (!FAUCET_PRIVATE_KEY) {
-  throw new Error("FAUCET_PRIVATE_KEY is not set in environment variables.")
-}
-if (!HELIUS_RPC_URL) {
-  throw new Error("HELIUS_RPC_URL is not set in environment variables.")
-}
-
-const connection = new Connection(HELIUS_RPC_URL, "confirmed")
-const faucetKeypair = Keypair.fromSecretKey(
-  Uint8Array.from(Buffer.from(FAUCET_PRIVATE_KEY, "base58")), // Use base58 for Solana private keys
-)
+const connection = new Connection(process.env.NEXT_PUBLIC_SOLANA_RPC_URL!)
 
 export async function POST(req: Request) {
   try {
-    const { recipientAddress, mintAddress, amount } = await req.json()
+    const { walletAddress } = await req.json()
 
-    if (!recipientAddress || !mintAddress || !amount) {
-      return NextResponse.json({ error: "Missing required parameters" }, { status: 400 })
+    if (!walletAddress) {
+      return NextResponse.json({ error: "Wallet address is required" }, { status: 400 })
     }
 
-    const recipientPublicKey = new PublicKey(recipientAddress)
-    const mintPublicKey = new PublicKey(mintAddress)
-    const tokenAmount = Number.parseFloat(amount)
+    const recipientPublicKey = new PublicKey(walletAddress)
 
-    // Get or create the associated token account for the recipient
-    const recipientTokenAccount = await getOrCreateAssociatedTokenAccount(
-      connection,
-      faucetKeypair, // Payer
-      mintPublicKey,
-      recipientPublicKey,
+    // Ensure FAUCET_PRIVATE_KEY is set in your environment variables
+    if (!process.env.FAUCET_PRIVATE_KEY) {
+      return NextResponse.json({ error: "Faucet private key not configured" }, { status: 500 })
+    }
+
+    const faucetKeypair = Keypair.fromSecretKey(Uint8Array.from(JSON.parse(process.env.FAUCET_PRIVATE_KEY)))
+
+    const transaction = new Transaction().add(
+      SystemProgram.transfer({
+        fromPubkey: faucetKeypair.publicKey,
+        toPubkey: recipientPublicKey,
+        lamports: 0.1 * LAMPORTS_PER_SOL, // Send 0.1 SOL
+      }),
     )
 
-    // Get or create the associated token account for the faucet
-    const faucetTokenAccount = await getOrCreateAssociatedTokenAccount(
-      connection,
-      faucetKeypair, // Payer
-      mintPublicKey,
-      faucetKeypair.publicKey,
-    )
+    const { blockhash } = await connection.getLatestBlockhash()
+    transaction.recentBlockhash = blockhash
+    transaction.feePayer = faucetKeypair.publicKey
 
-    // Transfer tokens
-    const signature = await transfer(
-      connection,
-      faucetKeypair, // Payer
-      faucetTokenAccount.address,
-      recipientTokenAccount.address,
-      faucetKeypair.publicKey, // Authority
-      tokenAmount * Math.pow(10, recipientTokenAccount.mint.decimals), // Amount in smallest unit
-    )
+    transaction.sign(faucetKeypair)
+
+    const signature = await connection.sendRawTransaction(transaction.serialize())
+
+    await connection.confirmTransaction(signature, "confirmed")
 
     return NextResponse.json({ signature })
   } catch (error) {
     console.error("Faucet error:", error)
-    return NextResponse.json({ error: "Failed to dispense tokens" }, { status: 500 })
+    return NextResponse.json({ error: (error as Error).message }, { status: 500 })
   }
 }

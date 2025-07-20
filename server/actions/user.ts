@@ -1,13 +1,32 @@
 "use server"
 
-import { upsertUser as dbUpsertUser } from "@/db/queries"
+import { db } from "@/db/client"
+import { users } from "@/db/schema"
+import { eq } from "drizzle-orm"
 
-export async function upsertUser(id: string, email: string, username: string, walletAddress: string) {
+export async function createUser(userData: { privyId: string; walletAddress: string; email: string | null }) {
   try {
-    const user = await dbUpsertUser(id, email, username, walletAddress)
-    return { success: true, user }
+    const existingUser = await db.select().from(users).where(eq(users.privyId, userData.privyId)).limit(1)
+
+    if (existingUser.length > 0) {
+      console.log("User already exists:", existingUser[0].privyId)
+      return existingUser[0]
+    }
+
+    const [newUser] = await db.insert(users).values(userData).returning()
+    return newUser
   } catch (error) {
-    console.error("Error in upsertUser server action:", error)
-    return { success: false, error: "Failed to upsert user" }
+    console.error("Error creating user:", error)
+    throw new Error("Failed to create user.")
+  }
+}
+
+export async function getUser(walletAddress: string) {
+  try {
+    const [user] = await db.select().from(users).where(eq(users.walletAddress, walletAddress)).limit(1)
+    return user
+  } catch (error) {
+    console.error("Error fetching user:", error)
+    throw new Error("Failed to fetch user.")
   }
 }

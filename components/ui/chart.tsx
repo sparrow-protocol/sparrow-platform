@@ -1,121 +1,81 @@
 "use client"
+import { TrendingUp } from "lucide-react"
+import { Area, AreaChart, CartesianGrid, XAxis } from "recharts"
 
-import type * as React from "react"
-import { VictoryAxis, VictoryChart, VictoryLine, VictoryTheme, VictoryTooltip, VictoryVoronoiContainer } from "victory"
-import { format } from "date-fns"
-import {
-  CartesianGrid,
-  LineChart,
-  BarChart,
-  AreaChart,
-  ResponsiveContainer,
-  XAxis,
-  YAxis,
-  Tooltip,
-  Legend,
-  Line,
-} from "recharts"
-import {
-  ChartContainer as RechartsChartContainer,
-  ChartTooltip as RechartsChartTooltip,
-  ChartTooltipContent as RechartsChartTooltipContent,
-} from "@/components/ui/chart" // Assuming chart.tsx is in the same directory
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { type ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
 
-import { cn } from "@/lib/utils"
-import type { ChartDataPoint } from "@/app/types/chart"
+const chartData = [
+  { month: "January", desktop: 186, mobile: 80 },
+  { month: "February", desktop: 305, mobile: 200 },
+  { month: "March", desktop: 237, mobile: 120 },
+  { month: "April", desktop: 73, mobile: 190 },
+  { month: "May", desktop: 209, mobile: 130 },
+  { month: "June", desktop: 214, mobile: 140 },
+]
 
-interface ChartProps extends React.HTMLAttributes<HTMLDivElement> {
-  data: ChartDataPoint[]
-  title?: string
-  description?: string
-  xLabel?: string
-  yLabel?: string
-  lineColor?: string
-}
+const chartConfig = {
+  desktop: {
+    label: "Desktop",
+    color: "hsl(var(--chart-1))",
+  },
+  mobile: {
+    label: "Mobile",
+    color: "hsl(var(--chart-2))",
+  },
+} satisfies ChartConfig
 
-export function Chart({
-  data,
-  title,
-  description,
-  xLabel,
-  yLabel,
-  lineColor = "#8884d8",
-  className,
-  ...props
-}: ChartProps) {
-  if (!data || data.length === 0) {
-    return (
-      <div className={cn("flex h-64 items-center justify-center rounded-lg bg-muted", className)} {...props}>
-        <p className="text-muted-foreground">No data available for chart.</p>
-      </div>
-    )
-  }
-
-  // Format data for VictoryChart
-  const formattedData = data.map((d) => ({
-    x: new Date(d.date),
-    y: d.value,
-    label: `${format(new Date(d.date), "MMM dd, yyyy")}: $${d.value.toLocaleString()}`,
-  }))
-
+export function Component() {
   return (
-    <div className={cn("w-full", className)} {...props}>
-      {title && <h3 className="text-lg font-semibold">{title}</h3>}
-      {description && <p className="text-sm text-muted-foreground">{description}</p>}
-      <ResponsiveContainer width="100%" height={300}>
-        <VictoryChart
-          theme={VictoryTheme.material}
-          containerComponent={
-            <VictoryVoronoiContainer
-              labels={({ datum }) => datum.label}
-              labelComponent={<VictoryTooltip style={{ fontSize: 10 }} />}
+    <Card>
+      <CardHeader>
+        <CardTitle>Area Chart</CardTitle>
+        <CardDescription>Showing total visitors for the last 6 months</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <ChartContainer config={chartConfig}>
+          <AreaChart
+            accessibilityLayer
+            data={chartData}
+            margin={{
+              left: 12,
+              right: 12,
+            }}
+          >
+            <CartesianGrid vertical={false} />
+            <XAxis
+              dataKey="month"
+              tickLine={false}
+              axisLine={false}
+              tickMargin={8}
+              tickFormatter={(value) => value.slice(0, 3)}
             />
-          }
-          padding={{ top: 20, bottom: 60, left: 60, right: 20 }}
-          scale={{ x: "time", y: "linear" }}
-        >
-          <VictoryAxis
-            label={xLabel}
-            tickFormat={(x) => format(new Date(x), "MMM dd")}
-            style={{
-              axisLabel: { padding: 30 },
-              tickLabels: { fontSize: 10, padding: 5 },
-            }}
-          />
-          <VictoryAxis
-            dependentAxis
-            label={yLabel}
-            tickFormat={(y) => `$${y.toLocaleString()}`}
-            style={{
-              axisLabel: { padding: 40 },
-              tickLabels: { fontSize: 10, padding: 5 },
-            }}
-          />
-          <VictoryLine
-            data={formattedData}
-            style={{
-              data: { stroke: lineColor },
-            }}
-          />
-        </VictoryChart>
-      </ResponsiveContainer>
-    </div>
+            <ChartTooltip cursor={false} content={<ChartTooltipContent />} />
+            <Area
+              dataKey="mobile"
+              type="natural"
+              fill="var(--color-mobile)"
+              fillOpacity={0.4}
+              stroke="var(--color-mobile)"
+              stackId="a"
+            />
+            <Area
+              dataKey="desktop"
+              type="natural"
+              fill="var(--color-desktop)"
+              fillOpacity={0.4}
+              stroke="var(--color-desktop)"
+              stackId="a"
+            />
+          </AreaChart>
+        </ChartContainer>
+      </CardContent>
+      <CardFooter className="flex-col items-start gap-2 text-sm">
+        <div className="flex items-center gap-2 font-medium leading-none">
+          Trending up by 5.2% this month <TrendingUp className="h-4 w-4" />
+        </div>
+        <div className="leading-none text-muted-foreground">Showing total visitors for the last 6 months</div>
+      </CardFooter>
+    </Card>
   )
-}
-
-// Re-exporting components from recharts and the local chart components
-export {
-  CartesianGrid,
-  Line,
-  LineChart,
-  BarChart,
-  AreaChart,
-  ResponsiveContainer,
-  XAxis,
-  YAxis,
-  Tooltip,
-  Legend,
-  RechartsChartContainer as ChartContainer,
-  RechartsChartTooltip as ChartTooltip,
-  RechartsChartTooltipContent as ChartTooltipContent,
 }

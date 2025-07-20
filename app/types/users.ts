@@ -1,8 +1,10 @@
 export type User = {
   id: string
-  privyDID: string
+  name: string
+  email: string
   walletAddress: string
-  email?: string
-  createdAt: Date
-  updatedAt: Date
+  balance: number
+  currency: string
+  lastLogin: string
+  createdAt: string
 }

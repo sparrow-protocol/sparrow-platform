@@ -1,22 +1,17 @@
 "use client"
 import Link from "next/link"
 
+import type { MainNavItem } from "types"
 import { siteConfig } from "@/config/site"
 import { cn } from "@/lib/utils"
-import { Icons } from "@/components/ui/icons"
 import { useLockBodyScroll } from "@/hooks/use-lock-body-scroll"
-import { MobileLink } from "@/components/mobile-link"
+import { Icons } from "@/components/ui/icons"
 
 interface MobileNavProps {
-  items: {
-    title: string
-    href: string
-    disabled?: boolean
-  }[]
-  onClose: () => void
+  mainNavItems?: MainNavItem[]
 }
 
-export function MobileNav({ items, onClose }: MobileNavProps) {
+export function MobileNav({ mainNavItems }: MobileNavProps) {
   useLockBodyScroll()
 
   return (
@@ -27,22 +22,21 @@ export function MobileNav({ items, onClose }: MobileNavProps) {
     >
       <div className="relative z-20 flex flex-col gap-6 rounded-md bg-popover p-4 text-popover-foreground shadow-md">
         <Link href="/" className="flex items-center space-x-2">
-          <Icons.logo className="h-6 w-6" />
+          <Icons.logo />
           <span className="font-bold">{siteConfig.name}</span>
         </Link>
         <nav className="grid grid-flow-row auto-rows-max text-sm">
-          {items.map((item, index) => (
-            <MobileLink
+          {mainNavItems?.map((item, index) => (
+            <Link
               key={index}
-              href={item.href}
-              onOpenChange={onClose}
+              href={item.disabled ? "#" : item.href}
               className={cn(
                 "flex w-full items-center rounded-md p-2 text-sm font-medium hover:underline",
                 item.disabled && "cursor-not-allowed opacity-60",
               )}
             >
               {item.title}
-            </MobileLink>
+            </Link>
           ))}
         </nav>
       </div>

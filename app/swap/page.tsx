@@ -4,10 +4,10 @@ import { SwapForm } from "@/components/swap/swap-form"
 
 export default function SwapPage() {
   return (
-    <Shell className="container max-w-xl">
+    <Shell className="container max-w-screen-md">
       <PageHeader
-        heading="Token Swap"
-        text="Swap tokens on Solana with the best rates powered by Jupiter Aggregator."
+        title="Swap Tokens"
+        description="Swap tokens on the Solana blockchain powered by Jupiter Aggregator."
       />
       <SwapForm />
     </Shell>

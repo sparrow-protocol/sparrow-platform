@@ -5,8 +5,8 @@ import { ReceivePaymentCard } from "@/components/solana-pay/receive-payment-card
 
 export default function PayPage() {
   return (
-    <Shell className="container max-w-3xl">
-      <PageHeader heading="Solana Pay" text="Send and receive payments on Solana using SPL tokens." />
+    <Shell className="container max-w-screen-lg">
+      <PageHeader title="Solana Pay" description="Send and receive payments on the Solana blockchain." />
       <div className="grid gap-6 md:grid-cols-2">
         <SendPaymentForm />
         <ReceivePaymentCard />

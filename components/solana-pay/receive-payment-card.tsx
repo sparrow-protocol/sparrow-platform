@@ -1,141 +1,76 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
-import { PublicKey } from "@solana/web3.js"
-import { useWallet } from "@solana/wallet-adapter-react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { generateSolanaPayQR, generateSolanaPayUrl, verifySolanaPayTransaction } from "@/app/lib/solana/solana-pay-url"
-import BigNumber from "bignumber.js"
-import { toast } from "@/components/ui/use-toast"
-import { useEmbeddedWallet } from "@/app/hooks/use-embedded-wallet"
-import { Loader2 } from "lucide-react"
-import { formatAddress } from "@/app/utils/format-address" // Declare the variable before using it
-
-const RECIPIENT_ADDRESS = process.env.SOLANA_PAY_RECIPIENT_ADDRESS
-const USDC_MINT_ADDRESS = "EPjFWdd5AufqSSqeM2qN1xzybapTVGSSmpPackCwEKnM" // USDC on mainnet-beta, adjust for devnet if needed
+import { generateSolanaPayQR } from "@/app/lib/solana/solana-pay-url"
+import { PublicKey } from "@solana/web3.js"
+import QRCode from "react-qr-code"
+import { usePrivy } from "@privy-io/react-auth"
+import { useWallets } from "@privy-io/react-auth/wallets"
 
 export function ReceivePaymentCard() {
-  const { publicKey: solanaPublicKey } = useWallet()
-  const { embeddedWalletAddress } = useEmbeddedWallet()
-
-  const recipientAddress = useMemo(() => {
-    if (RECIPIENT_ADDRESS) return new PublicKey(RECIPIENT_ADDRESS)
-    if (embeddedWalletAddress) return new PublicKey(embeddedWalletAddress)
-    if (solanaPublicKey) return solanaPublicKey
-    return null
-  }, [embeddedWalletAddress, solanaPublicKey])
+  const { user } = usePrivy()
+  const { wallets } = useWallets()
+  const embeddedWallet = wallets.find((wallet) => wallet.walletClientType === "privy")
 
   const [amount, setAmount] = useState("0.01")
-  const [qrSvg, setQrSvg] = useState("")
-  const [loading, setLoading] = useState(false)
-  const [transactionSignature, setTransactionSignature] = useState<string | null>(null)
-  const [reference, setReference] = useState<PublicKey | null>(null)
-  const [intervalId, setIntervalId] = useState<NodeJS.Timeout | null>(null)
+  const [qrCodeSvg, setQrCodeSvg] = useState<string | null>(null)
+
+  const recipientAddress = embeddedWallet?.address || user?.wallet?.address || ""
+  const recipientPublicKey = recipientAddress ? new PublicKey(recipientAddress) : null
 
   useEffect(() => {
-    if (recipientAddress && amount && Number.parseFloat(amount) > 0) {
-      const newReference = new PublicKey(PublicKey.unique().toBuffer()) // Generate a new unique reference
-      setReference(newReference)
-
-      const url = generateSolanaPayUrl({
-        recipient: recipientAddress,
-        amount: new BigNumber(amount),
-        splToken: new PublicKey(USDC_MINT_ADDRESS), // Example: USDC
-        reference: newReference,
-        label: "Sparrow Payment",
-        message: `Payment for ${amount} USDC`,
-      })
-      setQrSvg(generateSolanaPayQR(url))
-      setTransactionSignature(null) // Reset signature on new QR
-
-      // Clear any existing interval
-      if (intervalId) {
-        clearInterval(intervalId)
+    if (recipientPublicKey && amount) {
+      try {
+        const qr = generateSolanaPayQR(recipientPublicKey, Number.parseFloat(amount))
+        setQrCodeSvg(qr)
+      } catch (error) {
+        console.error("Error generating QR code:", error)
+        setQrCodeSvg(null)
       }
-
-      // Start polling for transaction
-      const id = setInterval(async () => {
-        try {
-          const sig = await verifySolanaPayTransaction(
-            newReference,
-            new BigNumber(amount),
-            recipientAddress,
-            new PublicKey(USDC_MINT_ADDRESS),
-          )
-          setTransactionSignature(sig)
-          toast({
-            title: "Payment Received!",
-            description: `Transaction: ${sig}`,
-          })
-          if (intervalId) clearInterval(intervalId) // Stop polling on success
-        } catch (error) {
-          // console.log("Waiting for transaction...", error);
-        }
-      }, 3000) // Poll every 3 seconds
-      setIntervalId(id)
     } else {
-      setQrSvg("")
-      setTransactionSignature(null)
-      if (intervalId) clearInterval(intervalId)
+      setQrCodeSvg(null)
     }
-
-    return () => {
-      if (intervalId) clearInterval(intervalId)
-    }
-  }, [recipientAddress, amount]) // Re-generate QR and restart polling if these change
-
-  if (!recipientAddress) {
-    return (
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle>Receive Payment</CardTitle>
-          <CardDescription>Please connect your Solana wallet or log in to generate a payment request.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <p className="text-muted-foreground">No recipient address available.</p>
-        </CardContent>
-      </Card>
-    )
-  }
+  }, [recipientPublicKey, amount])
 
   return (
     <Card className="w-full max-w-md">
       <CardHeader>
-        <CardTitle>Receive Payment (Solana Pay)</CardTitle>
-        <CardDescription>Generate a Solana Pay QR code to receive USDC.</CardDescription>
+        <CardTitle>Receive Solana Payment</CardTitle>
+        <CardDescription>Generate a Solana Pay QR code to receive SOL.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div>
-          <Label htmlFor="amount">Amount (USDC)</Label>
+          <Label htmlFor="receiveAmount">Amount (SOL)</Label>
           <Input
-            id="amount"
+            id="receiveAmount"
             type="number"
             placeholder="0.00"
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
-            min="0.000001"
+            min="0"
             step="any"
-            className="mt-1"
           />
         </div>
-        {qrSvg ? (
-          <div className="flex flex-col items-center space-y-4">
-            <div dangerouslySetInnerHTML={{ __html: qrSvg }} className="h-64 w-64 rounded-lg border p-2" />
-            {transactionSignature ? (
-              <p className="text-green-500">Payment received! Signature: {formatAddress(transactionSignature)}</p>
+        {recipientAddress ? (
+          <div className="space-y-2">
+            <p className="text-sm text-muted-foreground">
+              Your address: {recipientAddress.slice(0, 6)}...{recipientAddress.slice(-4)}
+            </p>
+            {qrCodeSvg ? (
+              <div className="flex justify-center p-4 bg-white rounded-md">
+                <QRCode value={qrCodeSvg} size={256} viewBox={`0 0 256 256`} />
+              </div>
             ) : (
-              <p className="text-muted-foreground">Scan QR to pay {amount} USDC</p>
-            )}
-            {reference && (
-              <p className="text-xs text-muted-foreground">Reference: {formatAddress(reference.toBase58())}</p>
+              <p className="text-center text-red-500">
+                Error generating QR code. Please check your address and amount.
+              </p>
             )}
           </div>
         ) : (
-          <div className="flex h-64 items-center justify-center rounded-lg border bg-muted">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-          </div>
+          <p className="text-center text-muted-foreground">Connect your wallet to generate a QR code.</p>
         )}
       </CardContent>
     </Card>

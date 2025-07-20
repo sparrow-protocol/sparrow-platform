@@ -1,23 +1,39 @@
 import { HELIUS_API_KEY } from "@/app/lib/constants"
-import { Connection, type PublicKey, Transaction, VersionedTransaction } from "@solana/web3.js"
 import {
-  getJupiterPrice,
+  Connection,
+  PublicKey,
+  Transaction as SolanaTransaction,
+  SystemProgram,
+  LAMPORTS_PER_SOL,
+} from "@solana/web3.js"
+import { TOKEN_PROGRAM_ID } from "@solana/spl-token"
+import {
   getJupiterQuote,
   getJupiterSwapInstructions,
-  fetchJupiterTokenList,
-} from "@/app/lib/jupiter/jupiter-api"
-import { getWalletBalances } from "@/app/lib/solana/wallet-balances"
-import { getPortfolioHistory } from "@/app/lib/solana/portfolio-history"
-import { getMarketData } from "@/app/lib/market-data"
-import type { TokenBalance, PortfolioHistoryData } from "@/app/types/wallet"
+  fetchAllJupiterTokens,
+  sendVersionedTransaction,
+} from "@/app/lib/jupiter/jupiter-api" // Ensure fetchAllJupiterTokens is imported
+import { getAssociatedTokenAddressSync, createTransferInstruction } from "@solana/spl-token"
 import type { TransactionDetails, TransactionType } from "@/app/types/transactions"
-import { getUserTransactions, getTransactionDetails } from "@/db/queries"
 import { formatTimestamp } from "@/app/lib/format/date"
-import { TOKEN_PROGRAM_ID, getAssociatedTokenAddressSync, createTransferInstruction } from "@solana/spl-token"
-import type { JupiterToken } from "@/app/types/jupiter"
+import type { WalletData } from "@/app/types/wallet"
+import type { TokenInfo } from "../types/solana"
+import { getJupiterTokenList } from "./jupiter/jupiter-token"
+import { getWalletBalances } from "./solana/wallet-balances"
+import { getTransactionHistory } from "./solana/transaction-history"
+import { getPortfolioHistory } from "./solana/portfolio-history"
+import { getMarketData } from "./market-data"
+import type { ChartData, ChartPeriod } from "../types/chart"
+import type { JupiterToken } from "../types/jupiter"
+import { MOCK_TRANSACTIONS } from "./mock-data"
+import type { SolanaToken, SolanaWalletBalance } from "@/app/types/solana"
+import { fetchJupiterTokenList as fetchOriginalJupiterTokenList } from "./jupiter/jupiter-token"
+import { fetchJupiterQuote as fetchOriginalJupiterQuote, fetchJupiterSwap } from "./jupiter/jupiter-api"
+import type { WalletBalance } from "../types/wallet"
+import type { Transaction } from "../types/transactions"
 
-const HELIUS_RPC_URL = process.env.HELIUS_RPC_URL || ""
-const connection = new Connection(HELIUS_RPC_URL, "confirmed")
+const SOLANA_RPC_URL = process.env.NEXT_PUBLIC_SOLANA_RPC_URL || "https://api.devnet.solana.com"
+const connection = new Connection(SOLANA_RPC_URL, "confirmed")
 
 export async function getTokenPriceHistory(
   mintAddress: string,
@@ -51,60 +67,61 @@ export async function getTokenPriceHistory(
   }
 }
 
-export async function getTokenPrice(mintAddress: string, vsToken = "USD"): Promise<number | null> {
-  try {
-    const response = await fetch(`https://api.helius.xyz/v0/token-price?api-key=${HELIUS_API_KEY}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        mint: mintAddress,
-        vsToken: vsToken,
-      }),
-    })
+export async function fetchWalletData(publicKey: PublicKey): Promise<WalletData> {
+  const balances = await getSolanaWalletBalances(publicKey)
+  const portfolioHistory = await getSolanaPortfolioHistory(publicKey)
 
-    if (!response.ok) {
-      const errorData = await response.json()
-      console.error("Helius token price error:", errorData)
-      return null
-    }
-
-    const data = await response.json()
-    return data?.price || null
-  } catch (error) {
-    console.error("Error in getTokenPrice:", error)
-    return null
+  return {
+    balances,
+    portfolioHistory,
   }
 }
 
-export async function fetchWalletData(walletAddress: PublicKey): Promise<{
-  balances: TokenBalance[]
-  portfolioHistory: PortfolioHistoryData[]
-}> {
-  const balances = await getWalletBalances(connection, walletAddress)
-  const portfolioHistory = await getPortfolioHistory(walletAddress) // Mock data for now
-  return { balances, portfolioHistory }
+export async function fetchRecentTransactions(walletAddress: string): Promise<SolanaTransaction[]> {
+  // In a real application, this would fetch data from a Solana RPC or indexer
+  // For now, we return mock data
+  console.log(`Fetching transactions for ${walletAddress}`)
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      resolve(MOCK_TRANSACTIONS)
+    }, 700)
+  })
 }
 
-export async function fetchRecentTransactions(
-  userId: string,
-  page: number,
-  searchQuery: string,
-  transactionType: TransactionType | "all",
-): Promise<{ transactions: TransactionDetails[]; totalPages: number }> {
-  // In a real app, you'd fetch transactions from your database or a Solana indexer
-  // For now, we'll use the mock data and apply filters
-  const { transactions, totalPages } = await getUserTransactions(userId, page, 10, searchQuery, transactionType)
-  return { transactions, totalPages }
-}
+export async function fetchTransactionDetails(signature: string): Promise<SolanaTransaction | null> {
+  try {
+    const tx = await connection.getTransaction(signature, {
+      commitment: "confirmed",
+      maxSupportedTransactionVersion: 0,
+    })
 
-export async function fetchTransactionDetails(signature: string): Promise<TransactionDetails | undefined> {
-  return await getTransactionDetails(signature)
-}
+    if (!tx) {
+      return null
+    }
 
-export async function fetchTokenPrice(mintAddress: string): Promise<number | null> {
-  return getJupiterPrice(mintAddress)
+    // Basic parsing for display
+    const type = "Unknown" // More sophisticated parsing needed for actual types
+    const source = "N/A"
+    const destination = "N/A"
+    const amount = 0
+    const fee = tx.meta?.fee ? tx.meta.fee / 10 ** 9 : 0 // Convert lamports to SOL
+    const status = tx.meta?.err ? "Failed" : "Completed"
+    const timestamp = tx.blockTime ? new Date(tx.blockTime * 1000) : new Date()
+
+    return {
+      signature,
+      type,
+      source,
+      destination,
+      amount,
+      timestamp,
+      status,
+      fee,
+    }
+  } catch (error) {
+    console.error("Error fetching transaction details:", error)
+    return null
+  }
 }
 
 export async function getRecentTransactions(walletAddress: PublicKey, limit = 10): Promise<TransactionDetails[]> {
@@ -124,16 +141,15 @@ export async function getRecentTransactions(walletAddress: PublicKey, limit = 10
           (ix) => "parsed" in ix && ix.parsed?.type === "transfer",
         )
           ? "transfer"
-          : "program_interaction" // Simplified type for now
+          : "program_interaction"
 
         return {
           signature: sigInfo.signature,
           timestamp: formatTimestamp(sigInfo.blockTime ? sigInfo.blockTime * 1000 : Date.now()),
           type: type,
           status: sigInfo.err ? "failed" : "success",
-          fee: tx.meta?.fee ? tx.meta.fee / 1_000_000_000 : 0, // Convert lamports to SOL
+          fee: tx.meta?.fee ? tx.meta.fee / 1_000_000_000 : 0,
           block: tx.slot,
-          // Add more details as needed
         } as TransactionDetails
       }),
     )
@@ -189,14 +205,10 @@ export async function getTransactionDetailsBySignature(signature: string): Promi
       slot: tx.slot,
       recentBlockhash: tx.transaction.message.recentBlockhash,
       instructions: parsedInstructions,
-      // Log messages from transaction meta
       logMessages: tx.meta?.logMessages || [],
-      // Account keys involved in the transaction
       accountKeys: tx.transaction.message.staticAccountKeys.map((key) => key.toBase58()),
-      // Pre and post balances
       preBalances: tx.meta?.preBalances || [],
       postBalances: tx.meta?.postBalances || [],
-      // Pre and post token balances
       preTokenBalances: tx.meta?.preTokenBalances || [],
       postTokenBalances: tx.meta?.postTokenBalances || [],
     }
@@ -206,130 +218,31 @@ export async function getTransactionDetailsBySignature(signature: string): Promi
   }
 }
 
-/**
- * Fetches transaction history for a given wallet address.
- * This function is a placeholder and should be replaced with a more robust solution
- * that integrates with a database or a specialized API for historical transactions.
- * For now, it fetches recent transactions directly from the Solana RPC.
- * @param walletAddress The public key of the wallet.
- * @param page The page number for pagination.
- * @param limit The number of transactions per page.
- * @param query Optional search query for signature.
- * @param type Optional filter for transaction type.
- * @returns An object containing transactions and total pages.
- */
-export async function getTransactionHistory(
-  walletAddress: PublicKey,
-  page = 1,
-  limit = 10,
-  query = "",
-  type: TransactionType | "all" = "all",
-) {
-  try {
-    // In a real application, you would query your database here
-    // For now, we'll simulate pagination by fetching more recent transactions
-    // and then filtering/slicing them. This is NOT efficient for large histories.
-    const allSignatures = await connection.getConfirmedSignaturesForAddress2(walletAddress, {
-      limit: 100, // Fetch a larger set to simulate filtering
-    })
-
-    const filteredSignatures = allSignatures.filter((sigInfo) => {
-      const matchesQuery = query ? sigInfo.signature.includes(query) : true
-      // Type filtering would require parsing transaction details, which is expensive here.
-      // For a real app, store type in DB or use a specialized API.
-      const matchesType = type === "all" ? true : true // Placeholder, actual type check needed
-
-      return matchesQuery && matchesType
-    })
-
-    const startIndex = (page - 1) * limit
-    const endIndex = startIndex + limit
-    const signaturesForPage = filteredSignatures.slice(startIndex, endIndex)
-
-    const transactions = await Promise.all(
-      signaturesForPage.map(async (sigInfo) => {
-        const tx = await connection.getParsedTransaction(sigInfo.signature, {
-          maxSupportedTransactionVersion: 0,
-          commitment: "confirmed",
-        })
-
-        if (!tx) return null
-
-        const txType: TransactionType = tx.transaction.message.instructions.some(
-          (ix) => "parsed" in ix && ix.parsed?.type === "transfer",
-        )
-          ? "transfer"
-          : "program_interaction"
-
-        return {
-          signature: sigInfo.signature,
-          timestamp: formatTimestamp(sigInfo.blockTime ? sigInfo.blockTime * 1000 : Date.now()),
-          type: txType,
-          status: sigInfo.err ? "failed" : "success",
-          fee: tx.meta?.fee ? tx.meta.fee / 1_000_000_000 : 0,
-          block: tx.slot,
-        } as TransactionDetails
-      }),
-    )
-
-    const totalPages = Math.ceil(filteredSignatures.length / limit)
-
-    return {
-      transactions: transactions.filter(Boolean) as TransactionDetails[],
-      totalPages,
-    }
-  } catch (error) {
-    console.error("Error fetching transaction history:", error)
-    return { transactions: [], totalPages: 0 }
-  }
+export async function getSolanaTransactionHistory(publicKey: PublicKey): Promise<Transaction[]> {
+  return getTransactionHistory(connection, publicKey)
 }
 
-export async function fetchWalletBalances(walletAddress: PublicKey) {
-  return getWalletBalances(connection, walletAddress)
+export async function getSolanaPortfolioHistory(publicKey: PublicKey, period: ChartPeriod): Promise<ChartData[]> {
+  return getPortfolioHistory(publicKey, period)
 }
 
-export async function fetchPortfolioHistory(walletAddress: PublicKey) {
-  return getPortfolioHistory(walletAddress)
+export async function getSolanaMarketData(tokenSymbol: string, currency: string): Promise<any> {
+  return getMarketData(tokenSymbol, currency)
 }
 
-export async function fetchMarketData(tokenSymbols: string[]) {
-  return getMarketData(tokenSymbols)
+export async function getSolanaWalletBalances(publicKey: PublicKey): Promise<WalletBalance[]> {
+  return getWalletBalances(connection, publicKey)
 }
 
-export async function fetchJupiterQuote(inputMint: string, outputMint: string, amount: string, slippageBps: number) {
-  return getJupiterQuote(inputMint, outputMint, amount, slippageBps)
+export async function fetchJupiterTokenList(): Promise<JupiterToken[]> {
+  return getJupiterTokenList()
 }
 
-export async function fetchJupiterSwapInstructions(
-  quoteResponse: any,
-  userPublicKey: PublicKey,
-  wrapAndUnwrapSol = true,
-) {
-  const { swapTransaction } = await getJupiterSwapInstructions(quoteResponse, userPublicKey, wrapAndUnwrapSol)
-  const swapTransactionBuf = Buffer.from(swapTransaction, "base64")
-  const transaction = VersionedTransaction.deserialize(swapTransactionBuf)
-
-  // Jupiter's swap endpoint returns a single transaction that might contain setup, swap, and cleanup instructions.
-  // We need to extract them if they are separate, but typically it's one compiled transaction.
-  // For simplicity, we'll return the transaction and let the caller handle signing and sending.
-  // If Jupiter's API changes to return separate instructions, this part would need adjustment.
-  return {
-    swapInstruction: transaction.message.compiledInstructions[0], // This is a simplification; actual instructions might be more complex
-    cleanupInstruction: null, // Placeholder, Jupiter often bundles cleanup
-    setupInstructions: [], // Placeholder, Jupiter often bundles setup
-    transaction: transaction, // Return the full transaction for direct signing
-  }
-}
-
-export async function fetchUserTransactions(
-  userId: string,
-  page: number,
-  limit: number,
-  searchQuery: string,
-  transactionType: TransactionType | "all",
-) {
-  return getUserTransactions(userId, page, limit, searchQuery, transactionType)
-}
+// Re-export Jupiter API functions with their original names as requested by the error
+export { getJupiterQuote as fetchJupiterQuote }
+export { getJupiterSwapInstructions as fetchJupiterSwapInstructions }
+export { fetchAllJupiterTokens } // Explicitly re-export fetchAllJupiterTokens
+export { sendVersionedTransaction }
 
 export async function transferSPLToken(
   fromWallet: PublicKey,
@@ -337,7 +250,7 @@ export async function transferSPLToken(
   mintAddress: PublicKey,
   amount: number,
   decimals: number,
-) {
+): Promise<SolanaTransaction> {
   const fromTokenAccount = getAssociatedTokenAddressSync(mintAddress, fromWallet)
   const toTokenAccount = getAssociatedTokenAddressSync(mintAddress, toWallet)
 
@@ -350,16 +263,152 @@ export async function transferSPLToken(
     TOKEN_PROGRAM_ID,
   )
 
-  const transaction = new Transaction().add(transferInstruction)
+  const transaction = new SolanaTransaction().add(transferInstruction)
   return transaction
 }
 
-export async function sendVersionedTransaction(signedTransaction: VersionedTransaction) {
-  const signature = await connection.sendTransaction(signedTransaction)
-  await connection.confirmTransaction(signature, "confirmed")
-  return signature
+export async function fetchTokenInfo(tokenAddress: string): Promise<TokenInfo | null> {
+  try {
+    const response = await fetch(`https://token.jup.ag/all?addresses=${tokenAddress}`)
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
+    }
+    const data: TokenInfo[] = await response.json()
+    if (data.length > 0) {
+      return data[0]
+    }
+    return null
+  } catch (error) {
+    console.error(`Error fetching token info for ${tokenAddress}:`, error)
+    return null
+  }
 }
 
-export async function fetchAllJupiterTokens(): Promise<JupiterToken[]> {
-  return fetchJupiterTokenList()
+export async function getTokenBalances(publicKey: PublicKey): Promise<SolanaWalletBalance[]> {
+  try {
+    const tokenAccounts = await connection.getParsedTokenAccountsByOwner(publicKey, {
+      programId: TOKEN_PROGRAM_ID,
+    })
+
+    const tokenList = await fetchOriginalJupiterTokenList()
+    const balances: SolanaWalletBalance[] = []
+
+    for (const account of tokenAccounts.value) {
+      const mintAddress = account.account.data.parsed.info.mint
+      const amount = account.account.data.parsed.info.tokenAmount.uiAmount
+
+      const tokenMeta = tokenList.find((token) => token.address === mintAddress)
+
+      if (tokenMeta && amount > 0) {
+        // For simplicity, we'll mock price data. In a real app, fetch from a price oracle.
+        const pricePerToken = Math.random() * 10 // Mock price
+        const usdValue = amount * pricePerToken
+
+        balances.push({
+          mint: new PublicKey(mintAddress),
+          tokenSymbol: tokenMeta.symbol,
+          balance: amount,
+          usdValue: usdValue,
+          pricePerToken: pricePerToken,
+          logoURI: tokenMeta.logoURI,
+        })
+      }
+    }
+    return balances
+  } catch (error) {
+    console.error("Error fetching token balances:", error)
+    return []
+  }
+}
+
+export async function getSolBalance(publicKey: PublicKey): Promise<number> {
+  try {
+    const balance = await connection.getBalance(publicKey)
+    return balance / LAMPORTS_PER_SOL
+  } catch (error) {
+    console.error("Error fetching SOL balance:", error)
+    return 0
+  }
+}
+
+export async function performSwap(
+  fromToken: SolanaToken,
+  toToken: SolanaToken,
+  amount: number,
+  userPublicKey: PublicKey,
+  signTransaction: (transaction: SolanaTransaction) => Promise<SolanaTransaction>,
+): Promise<string | null> {
+  try {
+    const quote = await fetchOriginalJupiterQuote(fromToken.address, toToken.address, amount, fromToken.decimals)
+
+    if (!quote) {
+      throw new Error("Failed to get swap quote from Jupiter.")
+    }
+
+    const swapResult = await fetchJupiterSwap(quote.swapInstruction, userPublicKey.toBase58())
+
+    if (!swapResult || !swapResult.swapTransaction) {
+      throw new Error("Failed to get swap transaction from Jupiter.")
+    }
+
+    const swapTransactionBuf = Buffer.from(swapResult.swapTransaction, "base64")
+    const transaction = SolanaTransaction.from(swapTransactionBuf)
+
+    const signedTransaction = await signTransaction(transaction)
+    const rawTransaction = signedTransaction.serialize()
+
+    const signature = await connection.sendRawTransaction(rawTransaction, {
+      skipPreflight: true, // Set to false in production after testing
+      maxRetries: 2,
+    })
+
+    await connection.confirmTransaction(signature, "confirmed")
+
+    console.log("Swap successful with signature:", signature)
+    return signature
+  } catch (error) {
+    console.error("Error performing swap:", error)
+    return null
+  }
+}
+
+export async function requestAirdrop(publicKey: PublicKey, amount = 1): Promise<string | null> {
+  try {
+    const airdropSignature = await connection.requestAirdrop(publicKey, amount * LAMPORTS_PER_SOL)
+    await connection.confirmTransaction(airdropSignature, "confirmed")
+    return airdropSignature
+  } catch (error) {
+    console.error("Error requesting airdrop:", error)
+    return null
+  }
+}
+
+export async function sendSolanaPayment(
+  fromPublicKey: PublicKey,
+  toPublicKey: PublicKey,
+  amount: number,
+  signTransaction: (transaction: SolanaTransaction) => Promise<SolanaTransaction>,
+): Promise<string | null> {
+  try {
+    const transaction = new SolanaTransaction().add(
+      SystemProgram.transfer({
+        fromPubkey: fromPublicKey,
+        toPubkey: toPublicKey,
+        lamports: amount * LAMPORTS_PER_SOL,
+      }),
+    )
+
+    const { blockhash } = await connection.getLatestBlockhash()
+    transaction.recentBlockhash = blockhash
+    transaction.feePayer = fromPublicKey
+
+    const signedTransaction = await signTransaction(transaction)
+    const signature = await connection.sendRawTransaction(signedTransaction.serialize())
+
+    await connection.confirmTransaction(signature, "confirmed")
+    return signature
+  } catch (error) {
+    console.error("Error sending Solana payment:", error)
+    return null
+  }
 }

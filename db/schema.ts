@@ -1,74 +1,39 @@
-import { pgTable, text, timestamp, uuid, uniqueIndex } from "drizzle-orm/pg-core"
-import { relations } from "drizzle-orm"
+import { pgTable, text, timestamp, serial, uniqueIndex } from "drizzle-orm/pg-core"
 
 export const users = pgTable(
   "users",
   {
-    id: text("id").primaryKey().notNull(),
-    privyDID: text("privy_did").notNull().unique(),
-    walletAddress: text("wallet_address").notNull().unique(),
+    id: serial("id").primaryKey(),
+    privyId: text("privy_id").notNull().unique(),
     email: text("email"),
+    walletAddress: text("wallet_address").notNull().unique(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
   (users) => {
     return {
-      privyDIDIndex: uniqueIndex("privy_did_index").on(users.privyDID),
+      privyIdIndex: uniqueIndex("privy_id_index").on(users.privyId),
       walletAddressIndex: uniqueIndex("wallet_address_index").on(users.walletAddress),
     }
   },
 )
 
-export const usersRelations = relations(users, ({ many }) => ({
-  transactions: many(transactions),
-  chatMessages: many(chatMessages),
-}))
-
 export const transactions = pgTable(
   "transactions",
   {
-    signature: text("signature").primaryKey().notNull(),
-    userId: text("user_id")
-      .notNull()
-      .references(() => users.id),
+    id: serial("id").primaryKey(),
+    userId: text("user_id").notNull(), // Foreign key to users table
+    signature: text("signature").notNull().unique(),
+    type: text("type").notNull(),
+    amount: text("amount").notNull(),
+    tokenSymbol: text("token_symbol").notNull(),
     timestamp: timestamp("timestamp").defaultNow().notNull(),
-    type: text("type").notNull(), // e.g., 'transfer', 'swap', 'mint'
-    status: text("status").notNull(), // 'success', 'failed'
-    fee: text("fee").notNull(), // Store as text to avoid precision issues
-    block: text("block").notNull(),
-    fromAddress: text("from_address"),
-    toAddress: text("to_address"),
-    amount: text("amount"),
-    tokenMint: text("token_mint"),
+    status: text("status").notNull(),
+    fee: text("fee"),
   },
   (transactions) => {
     return {
       signatureIndex: uniqueIndex("signature_index").on(transactions.signature),
-      userIdIndex: uniqueIndex("user_id_index").on(transactions.userId),
     }
   },
 )
-
-export const transactionsRelations = relations(transactions, ({ one }) => ({
-  user: one(users, {
-    fields: [transactions.userId],
-    references: [users.id],
-  }),
-}))
-
-export const chatMessages = pgTable("chat_messages", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  userId: text("user_id")
-    .notNull()
-    .references(() => users.id),
-  role: text("role").notNull(), // 'user' or 'assistant'
-  content: text("content").notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-})
-
-export const chatMessagesRelations = relations(chatMessages, ({ one }) => ({
-  user: one(users, {
-    fields: [chatMessages.userId],
-    references: [users.id],
-  }),
-}))

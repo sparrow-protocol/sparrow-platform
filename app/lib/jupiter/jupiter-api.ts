@@ -1,67 +1,51 @@
-import type { PublicKey } from "@solana/web3.js"
-import type { JupiterQuoteResponse, JupiterToken } from "@/app/types/jupiter"
+import { type Connection, VersionedTransaction, type PublicKey } from "@solana/web3.js"
+import type { Wallet } from "@solana/wallet-adapter-react"
+import { toast } from "sonner"
+import type { JupiterToken, QuoteResponse, SwapInstructionsResponse } from "@/app/types/jupiter"
 
 const JUPITER_API_BASE_URL = "https://quote-api.jup.ag/v6"
-const JUPITER_TOKEN_LIST_URL = "https://token.jup.ag/strict"
 
-export async function getJupiterTokens(): Promise<JupiterToken[]> {
+export async function fetchAllJupiterTokens(): Promise<JupiterToken[]> {
   try {
     const response = await fetch(`${JUPITER_API_BASE_URL}/tokens`)
     if (!response.ok) {
-      throw new Error(`Failed to fetch Jupiter tokens: ${response.statusText}`)
+      throw new Error(`HTTP error! status: ${response.status}`)
     }
-    const data = await response.json()
+    const data: JupiterToken[] = await response.json()
     return data
   } catch (error) {
-    console.error("Error fetching Jupiter tokens:", error)
+    console.error("Error fetching all Jupiter tokens:", error)
     return []
-  }
-}
-
-export async function getJupiterPrice(mintAddress: string): Promise<number | null> {
-  try {
-    const response = await fetch(`${JUPITER_API_BASE_URL}/price?ids=${mintAddress}`)
-    if (!response.ok) {
-      throw new Error(`Failed to fetch Jupiter price: ${response.statusText}`)
-    }
-    const data = await response.json()
-    return data.data?.[mintAddress]?.price || null
-  } catch (error) {
-    console.error(`Error fetching Jupiter price for ${mintAddress}:`, error)
-    return null
   }
 }
 
 export async function getJupiterQuote(
   inputMint: string,
   outputMint: string,
-  amount: string,
-  slippageBps: number,
-): Promise<JupiterQuoteResponse | null> {
+  amount: number, // amount in lamports (smallest unit)
+  slippageBps = 50, // 50 basis points = 0.5%
+): Promise<QuoteResponse | null> {
   try {
     const response = await fetch(
       `${JUPITER_API_BASE_URL}/quote?inputMint=${inputMint}&outputMint=${outputMint}&amount=${amount}&slippageBps=${slippageBps}`,
     )
     if (!response.ok) {
-      const errorData = await response.json()
-      console.error("Jupiter quote error:", errorData)
-      throw new Error(`Failed to fetch Jupiter quote: ${response.statusText}`)
+      throw new Error(`HTTP error! status: ${response.status}`)
     }
-    const data = await response.json()
+    const data: QuoteResponse = await response.json()
     return data
   } catch (error) {
-    console.error("Error in getJupiterQuote:", error)
+    console.error("Error fetching Jupiter quote:", error)
     return null
   }
 }
 
 export async function getJupiterSwapInstructions(
-  quoteResponse: JupiterQuoteResponse,
+  quoteResponse: QuoteResponse,
   userPublicKey: PublicKey,
-  wrapAndUnwrapSol = true,
-): Promise<any> {
+): Promise<SwapInstructionsResponse | null> {
   try {
-    const response = await fetch(`${JUPITER_API_BASE_URL}/swap`, {
+    const response = await fetch(`${JUPITER_API_BASE_URL}/swap-instructions`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -69,34 +53,61 @@ export async function getJupiterSwapInstructions(
       body: JSON.stringify({
         quoteResponse,
         userPublicKey: userPublicKey.toBase58(),
-        wrapAndUnwrapSol,
+        wrapUnwrapSOL: true,
       }),
     })
-
     if (!response.ok) {
-      const errorData = await response.json()
-      console.error("Jupiter swap error:", errorData)
-      throw new Error(`Failed to get Jupiter swap transaction: ${response.statusText}`)
+      throw new Error(`HTTP error! status: ${response.status}`)
     }
-
-    const data = await response.json()
+    const data: SwapInstructionsResponse = await response.json()
     return data
   } catch (error) {
-    console.error("Error in getJupiterSwapTransaction:", error)
-    throw error
+    console.error("Error fetching Jupiter swap instructions:", error)
+    return null
   }
 }
 
-export async function fetchJupiterTokenList(): Promise<JupiterToken[]> {
+export async function sendVersionedTransaction(
+  connection: Connection,
+  wallet: Wallet,
+  serializedTransaction: string,
+): Promise<string | null> {
   try {
-    const response = await fetch(JUPITER_TOKEN_LIST_URL)
-    if (!response.ok) {
-      throw new Error(`Failed to fetch Jupiter token list: ${response.statusText}`)
-    }
-    const data = await response.json()
-    return data
+    const transactionBuffer = Buffer.from(serializedTransaction, "base64")
+    const transaction = VersionedTransaction.deserialize(transactionBuffer)
+
+    const signedTransaction = await wallet.signTransaction(transaction)
+
+    const rawTransaction = signedTransaction.serialize()
+    const signature = await connection.sendRawTransaction(rawTransaction, {
+      skipPreflight: true,
+      maxRetries: 2,
+    })
+
+    toast.info("Transaction sent, confirming...", {
+      description: `Signature: ${signature}`,
+    })
+
+    const latestBlockhash = await connection.getLatestBlockhash()
+    await connection.confirmTransaction(
+      {
+        blockhash: latestBlockhash.blockhash,
+        lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
+        signature,
+      },
+      "confirmed",
+    )
+
+    toast.success("Transaction confirmed!", {
+      description: `Signature: ${signature}`,
+    })
+
+    return signature
   } catch (error) {
-    console.error("Error fetching Jupiter token list:", error)
-    return []
+    console.error("Error sending versioned transaction:", error)
+    toast.error("Transaction failed!", {
+      description: (error as Error).message,
+    })
+    return null
   }
 }

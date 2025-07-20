@@ -1,32 +1,29 @@
-import type { PublicKey } from "@solana/web3.js"
-
 export type WalletBalance = {
-  token: string
+  mint: {
+    address: string
+    name: string
+    symbol: string
+    logoURI?: string
+    decimals: number
+  }
   balance: number
-  usdValue: number
+  value: number // USD value
 }
 
-export type TokenBalance = {
-  mintAddress: PublicKey
-  balance: number
-  usdValue: number
-  tokenName: string
-  tokenSymbol: string
-  icon?: string
-  decimals: number
-}
-
-export type TokenPriceHistory = {
-  time: number // Unix timestamp
-  value: number // Price in USD
-}
-
-export type PortfolioHistory = {
-  date: string // YYYY-MM-DD
-  value: number // Total portfolio value in USD
-}
-
-export type PortfolioHistoryData = {
-  date: string
-  value: number
+export type WalletTransaction = {
+  signature: string
+  type: string
+  timestamp: Date
+  amount: number
+  token: {
+    address: string
+    name: string
+    symbol: string
+    logoURI?: string
+    decimals: number
+  }
+  from: string
+  to: string
+  fee: number
+  status: "success" | "failed" | "pending"
 }

@@ -1,32 +1,14 @@
-import { GitHubLogoIcon, HomeIcon, TwitterLogoIcon } from "@radix-ui/react-icons"
-
-import type { LucideIcon, CodeIcon as ClassValue } from "lucide-react"
-import { cn } from "@/lib/utils"
-
-export type IconProps = {
-  className?: ClassValue
-}
-
-export type Icon = LucideIcon
+import { type LightbulbIcon as LucideProps, Moon, SunMedium, Github, Twitter, Laptop, Menu, X } from "lucide-react"
 
 export const Icons = {
-  logo: ({ className }: IconProps) => (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" className={cn("h-6 w-6", className)}>
-      <path fill="none" d="M0 0H256V256H0z" />
-      <path
-        fill="none"
-        stroke="currentColor"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="16"
-        d="M208 128L128 208 48 128M128 48L48 128l80 80"
-      />
-    </svg>
-  ),
-  home: HomeIcon,
-  gitHub: GitHubLogoIcon,
-  twitter: TwitterLogoIcon,
-  close: ({ className }: IconProps) => (
+  sun: SunMedium,
+  moon: Moon,
+  laptop: Laptop,
+  gitHub: Github,
+  twitter: Twitter,
+  menu: Menu,
+  close: X,
+  logo: ({ ...props }: LucideProps) => (
     <svg
       xmlns="http://www.w3.org/2000/svg"
       width="24"
@@ -37,10 +19,9 @@ export const Icons = {
       strokeWidth="2"
       strokeLinecap="round"
       strokeLinejoin="round"
-      className={cn("h-4 w-4", className)}
+      {...props}
     >
-      <path d="M18 6 6 18" />
-      <path d="m6 6 12 12" />
+      <path d="M12 12L12 12C12 14.7614 9.76142 17 7 17C4.23858 17 2 14.7614 2 12C2 9.23858 4.23858 7 7 7C9.76142 7 12 9.23858 12 12ZM12 12L12 12C12 9.23858 14.2386 7 17 7C19.7614 7 22 9.23858 22 12C22 14.7614 19.7614 17 17 17C14.2386 17 12 14.7614 12 12Z" />
     </svg>
   ),
 }

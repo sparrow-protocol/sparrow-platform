@@ -1,27 +1,25 @@
+import type React from "react"
+import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
 import Link from "next/link"
 
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+interface CallToActionProps extends React.HTMLAttributes<HTMLDivElement> {
+  title: string
+  description: string
+  buttonText: string
+  buttonHref: string
+}
 
-export function CallToAction() {
+export function CallToAction({ title, description, buttonText, buttonHref, className, ...props }: CallToActionProps) {
   return (
-    <Card className="w-full max-w-4xl mx-auto text-center">
-      <CardHeader>
-        <CardTitle className="text-3xl font-bold">Ready to get started?</CardTitle>
-        <CardDescription className="mt-2 text-lg">
-          Join Sparrow today and take control of your Solana assets.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="flex justify-center gap-4">
-          <Button asChild size="lg">
-            <Link href="/login">Sign Up Now</Link>
-          </Button>
-          <Button asChild variant="outline" size="lg">
-            <Link href="/dashboard">Learn More</Link>
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
+    <div className={cn("flex flex-col items-center justify-center space-y-4 p-8 text-center", className)} {...props}>
+      <h2 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl">{title}</h2>
+      <p className="max-w-[700px] text-gray-500 md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed dark:text-gray-400">
+        {description}
+      </p>
+      <Button asChild>
+        <Link href={buttonHref}>{buttonText}</Link>
+      </Button>
+    </div>
   )
 }

@@ -1,6 +1,6 @@
 export function formatNumber(value: number, decimals = 2): string {
   return value.toLocaleString(undefined, {
-    minimumFractionDigits: 0,
+    minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,
   })
 }

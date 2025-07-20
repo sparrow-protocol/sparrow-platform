@@ -1,16 +1,6 @@
-import type { NavItem } from "@/app/types"
+import type { MainNavItem } from "types"
 
-interface SiteConfig {
-  name: string
-  description: string
-  mainNav: NavItem[]
-  links: {
-    twitter: string
-    github: string
-  }
-}
-
-export const siteConfig: SiteConfig = {
+export const siteConfig = {
   name: "Sparrow",
   description: "A Solana DeFi web application.",
   mainNav: [
@@ -31,12 +21,17 @@ export const siteConfig: SiteConfig = {
       href: "/faucet",
     },
     {
-      title: "AI Chat",
-      href: "/ai",
+      title: "Transactions",
+      href: "/transactions",
     },
-  ],
+    {
+      title: "AI Chat",
+      href: "/ai-chat",
+    },
+  ] satisfies MainNavItem[],
   links: {
     twitter: "https://twitter.com/vercel",
     github: "https://github.com/vercel/next.js",
+    docs: "https://nextjs.org/docs",
   },
 }

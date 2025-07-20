@@ -1,39 +1,26 @@
 "use client"
 
 import { useState } from "react"
-import { useWallet } from "@solana/wallet-adapter-react"
+import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
-import { toast } from "@/components/ui/use-toast"
-import { useEmbeddedWallet } from "@/app/hooks/use-embedded-wallet"
+import { toast } from "sonner"
+import { usePrivy } from "@privy-io/react-auth"
+import { useWallets } from "@privy-io/react-auth/wallets"
 
 export function FaucetCard() {
-  const { publicKey: solanaPublicKey } = useWallet()
-  const { embeddedWalletAddress } = useEmbeddedWallet()
-  const [mintAddress, setMintAddress] = useState("")
-  const [amount, setAmount] = useState("1")
+  const [recipientAddress, setRecipientAddress] = useState("")
   const [loading, setLoading] = useState(false)
+  const { user } = usePrivy()
+  const { wallets } = useWallets()
 
-  const recipientAddress = embeddedWalletAddress || solanaPublicKey?.toBase58()
+  const embeddedWallet = wallets.find((wallet) => wallet.walletClientType === "privy")
+  const defaultAddress = embeddedWallet?.address || user?.wallet?.address || ""
 
-  const handleDispense = async () => {
+  const handleRequestAirdrop = async () => {
     if (!recipientAddress) {
-      toast({
-        title: "Error",
-        description: "Please connect a wallet or log in to receive tokens.",
-        variant: "destructive",
-      })
-      return
-    }
-
-    if (!mintAddress) {
-      toast({
-        title: "Error",
-        description: "Please enter a token mint address.",
-        variant: "destructive",
-      })
+      toast.error("Please enter a recipient address.")
       return
     }
 
@@ -44,33 +31,24 @@ export function FaucetCard() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          recipientAddress,
-          mintAddress,
-          amount: Number.parseFloat(amount),
-        }),
+        body: JSON.stringify({ walletAddress: recipientAddress }),
       })
 
       const data = await response.json()
 
       if (response.ok) {
-        toast({
-          title: "Success",
-          description: `Tokens dispensed! Transaction: ${data.signature}`,
+        toast.success("Airdrop successful!", {
+          description: `Transaction Signature: ${data.signature}`,
         })
       } else {
-        toast({
-          title: "Error",
-          description: data.error || "Failed to dispense tokens.",
-          variant: "destructive",
+        toast.error("Airdrop failed.", {
+          description: data.error || "An unknown error occurred.",
         })
       }
     } catch (error) {
-      console.error("Faucet dispense error:", error)
-      toast({
-        title: "Error",
-        description: "An unexpected error occurred.",
-        variant: "destructive",
+      console.error("Error requesting airdrop:", error)
+      toast.error("An unexpected error occurred.", {
+        description: (error as Error).message,
       })
     } finally {
       setLoading(false)
@@ -80,39 +58,26 @@ export function FaucetCard() {
   return (
     <Card className="w-full max-w-md">
       <CardHeader>
-        <CardTitle>Token Faucet (Devnet)</CardTitle>
-        <CardDescription>Receive free test tokens on Solana Devnet for development and testing.</CardDescription>
+        <CardTitle>Solana Devnet Faucet</CardTitle>
+        <CardDescription>Request Devnet SOL to your wallet for testing purposes.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div>
-          <Label htmlFor="recipient">Recipient Address</Label>
-          <Input id="recipient" value={recipientAddress || "Connect wallet or log in..."} readOnly className="mt-1" />
-        </div>
-        <div>
-          <Label htmlFor="mint">Token Mint Address</Label>
+          <Label htmlFor="recipientAddress">Recipient Wallet Address</Label>
           <Input
-            id="mint"
-            placeholder="e.g., Es9onQ... (USDC devnet)"
-            value={mintAddress}
-            onChange={(e) => setMintAddress(e.target.value)}
-            className="mt-1"
+            id="recipientAddress"
+            placeholder="Enter wallet address"
+            value={recipientAddress || defaultAddress}
+            onChange={(e) => setRecipientAddress(e.target.value)}
+            disabled={loading}
           />
         </div>
-        <div>
-          <Label htmlFor="amount">Amount</Label>
-          <Input
-            id="amount"
-            type="number"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            min="0.000001"
-            step="any"
-            className="mt-1"
-          />
-        </div>
-        <Button onClick={handleDispense} disabled={loading || !recipientAddress}>
-          {loading ? "Dispensing..." : "Dispense Tokens"}
+        <Button onClick={handleRequestAirdrop} disabled={loading}>
+          {loading ? "Requesting..." : "Request Airdrop (0.1 SOL)"}
         </Button>
+        {defaultAddress && (
+          <p className="text-sm text-muted-foreground">Your embedded wallet address: {defaultAddress}</p>
+        )}
       </CardContent>
     </Card>
   )

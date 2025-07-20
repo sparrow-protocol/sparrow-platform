@@ -6,8 +6,10 @@ interface ShellProps extends React.HTMLAttributes<HTMLDivElement> {
   as?: React.ElementType
 }
 
-function Shell({ className, as: Comp = "div", ...props }: ShellProps) {
-  return <Comp className={cn("grid items-center gap-8 pb-8 pt-6 md:py-8", className)} {...props} />
+export function Shell({ as: Comp = "div", className, children, ...props }: ShellProps) {
+  return (
+    <Comp className={cn("grid items-start gap-8", className)} {...props}>
+      {children}
+    </Comp>
+  )
 }
-
-export { Shell }

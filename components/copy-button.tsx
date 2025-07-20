@@ -1,10 +1,10 @@
 "use client"
 
 import * as React from "react"
-import { CheckIcon, CopyIcon } from "@radix-ui/react-icons"
+import { CheckIcon, CopyIcon } from "lucide-react"
 
-import { cn } from "@/lib/utils"
 import { Button, type ButtonProps } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
 
 interface CopyButtonProps extends ButtonProps {
   value: string
@@ -31,7 +31,7 @@ export function CopyButton({
     <Button
       size="icon"
       variant="ghost"
-      className={cn("relative z-10 h-6 w-6 text-zinc-50 hover:bg-zinc-700 hover:text-zinc-50", className)}
+      className={cn("relative z-10 h-6 w-6 text-zinc-50 hover:bg-zinc-700 hover:text-white", className)}
       onClick={() => {
         navigator.clipboard.writeText(value)
         setHasCopied(true)

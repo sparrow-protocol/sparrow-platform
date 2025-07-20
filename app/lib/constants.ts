@@ -1,10 +1,24 @@
-export const SITE_TITLE = "Sparrow"
-export const SITE_DESCRIPTION = "A Solana DeFi web application."
+export const AI_MODELS = [
+  {
+    name: "GPT-4o",
+    provider: "OpenAI",
+    description: "OpenAI's most advanced, multimodal flagship model.",
+  },
+  {
+    name: "Llama 3 8B",
+    provider: "Meta",
+    description: "Meta's 8B parameter Llama 3 model.",
+  },
+  {
+    name: "Llama 3 70B",
+    provider: "Meta",
+    description: "Meta's 70B parameter Llama 3 model.",
+  },
+  {
+    name: "Grok-1",
+    provider: "xAI",
+    description: "xAI's large language model.",
+  },
+]
 
-export const JUPITER_API_URL = "https://quote-api.jup.ag/v6"
-export const HELIUS_RPC_URL = process.env.NEXT_PUBLIC_HELIUS_RPC_URL || ""
-export const HELIUS_API_KEY = process.env.HELIUS_API_KEY || ""
-export const SOLANA_PAY_RECIPIENT_ADDRESS = process.env.SOLANA_PAY_RECIPIENT_ADDRESS || ""
-export const ADMIN_WALLET_ADDRESS = process.env.ADMIN_WALLET_ADDRESS || ""
-export const FAUCET_PRIVATE_KEY = process.env.FAUCET_PRIVATE_KEY || ""
-export const BIRDEYE_API_KEY = process.env.BIRDEYE_API_KEY || ""
+export const HELIUS_API_KEY = process.env.HELIUS_API_KEY

@@ -2,33 +2,22 @@
 
 This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
 
-Sparrow is a comprehensive Solana DeFi web application built with Next.js, Tailwind CSS, and shadcn/ui. It provides a dashboard to view wallet balances and recent transactions, a token swap interface powered by Jupiter Aggregator, a Solana Pay integration for sending and receiving payments, and a token faucet for development purposes.
+A modular web application and dashboard for Solana DeFi.
 
 ## Features
 
-- **Dashboard**: View real-time token balances, USD values, and recent transactions.
-- **Transaction History**: Filter and paginate through transaction history with search functionality.
-- **Portfolio Chart**: Visualize historical portfolio value (mock data).
-- **Token Swap**: Seamlessly swap tokens using Jupiter Aggregator.
-- **Solana Pay**: Send and receive payments via Solana Pay QR codes.
-- **Token Faucet**: Get test tokens for development on devnet.
-- **User Authentication**: Secure user authentication powered by Privy.
-- **AI Assistant**: Interact with an AI assistant for DeFi-related queries.
-- **Responsive Design**: Optimized for various screen sizes.
-- **Dark Mode**: Toggle between light and dark themes.
-
-## Tech Stack
-
-- **Framework**: Next.js 14 (App Router)
-- **Styling**: Tailwind CSS, shadcn/ui
-- **Database**: Neon (PostgreSQL) with Drizzle ORM
-- **Authentication**: Privy
-- **Solana Integration**: `@solana/web3.js`, `@solana/pay`, `@solana/spl-token`
-- **DeFi APIs**: Jupiter Aggregator, Helius (for RPC and enhanced APIs)
-- **AI**: Vercel AI SDK
-- **State Management**: Jotai
-- **Charting**: Recharts
-- **Forms**: React Hook Form, Zod
+- **Next.js App Router**: Built with the latest Next.js features for modern web development.
+- **Shadcn/ui**: Beautifully designed and accessible UI components.
+- **Tailwind CSS**: Utility-first CSS framework for rapid styling.
+- **Neon Database**: Scalable PostgreSQL database for robust data storage.
+- **Drizzle ORM**: TypeScript ORM for type-safe database interactions.
+- **Privy Authentication**: Secure and seamless user authentication.
+- **Solana Wallet Integration**: Connect and interact with Solana wallets.
+- **Jupiter Aggregator Integration**: Perform token swaps using Jupiter's liquidity.
+- **Solana Pay Integration**: Send and receive payments on the Solana blockchain.
+- **AI SDK Integration**: Integrate AI models for various functionalities.
+- **Modular Structure**: Organized codebase for easy maintenance and scalability.
+- **Responsive Design**: Optimized for various screen sizes and devices.
 
 ## Getting Started
 
@@ -53,7 +42,7 @@ This project uses [`next/font`](https://nextjs.org/docs/basic-features/font-opti
 ### 1. Clone the repository
 
 \`\`\`bash
-git clone https://github.com/your-username/sparrow-web-app.git
+git clone https://github.com/vercel-labs/sparrow-web-app.git
 cd sparrow-web-app
 \`\`\`
 
@@ -61,75 +50,118 @@ cd sparrow-web-app
 
 \`\`\`bash
 pnpm install
-# or
-npm install
-# or
-yarn install
 \`\`\`
 
-### 3. Set up Environment Variables
+### 3. Set up environment variables
 
-Create a `.env.local` file in the root of your project and add the following environment variables:
+Create a `.env.local` file in the root directory and add the following environment variables:
 
 \`\`\`
 # Neon Database
-DATABASE_URL="postgresql://[user]:[password]@[host]:[port]/[database]?sslmode=require"
-
-# Helius RPC (for Solana interactions)
-HELIUS_RPC_URL="https://rpc.helius.xyz/?api-key=YOUR_HELIUS_API_KEY"
-NEXT_PUBLIC_HELIUS_RPC_URL="https://rpc.helius.xyz/?api-key=YOUR_HELIUS_API_KEY"
+DATABASE_URL="YOUR_NEON_DATABASE_URL"
 
 # Privy Authentication
 NEXT_PUBLIC_PRIVY_APP_ID="YOUR_PRIVY_APP_ID"
 PRIVY_APP_SECRET="YOUR_PRIVY_APP_SECRET"
 
-# Solana Pay Recipient Address (for receiving payments)
-SOLANA_PAY_RECIPIENT_ADDRESS="YOUR_SOLANA_WALLET_ADDRESS"
+# Solana RPC (Helius recommended for enhanced APIs)
+NEXT_PUBLIC_HELIUS_RPC_URL="YOUR_HELIUS_RPC_URL"
+NEXT_PUBLIC_SOLANA_RPC_URL="YOUR_SOLANA_RPC_URL" # Fallback if Helius is not used
+NEXT_PUBLIC_SOLANA_NETWORK="devnet" # or "mainnet-beta", "testnet"
 
-# Faucet Private Key (for the token faucet, use a devnet wallet private key)
-FAUCET_PRIVATE_KEY="YOUR_FAUCET_WALLET_PRIVATE_KEY_BASE58"
+# Solana Pay
+SOLANA_PAY_RECIPIENT_ADDRESS="YOUR_SOLANA_PAY_RECIPIENT_ADDRESS" # Your wallet address to receive payments
 
-# Vercel AI SDK (for AI Assistant)
-OPENAI_API_KEY="YOUR_OPENAI_API_KEY" # Or other AI provider API key
+# AI SDK (Optional, for AI features)
+GROQ_API_KEY="YOUR_GROQ_API_KEY"
+XAI_API_KEY="YOUR_XAI_API_KEY" # For Grok models
+
+# Faucet (Optional, for local development/testing)
+FAUCET_PRIVATE_KEY="YOUR_FAUCET_PRIVATE_KEY" # Private key of a wallet with SOL for faucet
 \`\`\`
 
-**Note on `FAUCET_PRIVATE_KEY`**: This should be the base58 encoded private key of a Solana wallet that will be used to fund the faucet. **Do not use a mainnet wallet for this.** Create a new devnet wallet for this purpose.
-
-### 4. Database Setup (Neon + Drizzle)
-
-This project uses Neon for PostgreSQL and Drizzle ORM.
-
-**a. Push your schema to Neon:**
+### 4. Run database migrations
 
 \`\`\`bash
-pnpm db:push
+pnpm drizzle-kit push:pg
 \`\`\`
 
-**b. (Optional) Open Drizzle Studio:**
+### 5. Run the development server
 
 \`\`\`bash
-pnpm db:studio
+npm run dev
+# or
+yarn dev
+# or
+pnpm dev
+# or
+bun dev
+\`\`\`
+
+Open [http://localhost:3000](http://localhost:3000) in your browser to see the result.
+
+## Project Structure
+
+\`\`\`
+.
+├── app/                  # Next.js App Router pages, layouts, and API routes
+│   ├── api/              # API routes (e.g., /api/faucet)
+│   ├── dashboard/        # Dashboard pages
+│   ├── faucet/           # Faucet page
+│   ├── login/            # Login page
+│   ├── pay/              # Solana Pay page
+│   ├── swap/             # Token swap page
+│   ├── transactions/     # Transaction details page
+│   ├── globals.css       # Global styles
+│   ├── layout.tsx        # Root layout
+│   ├── not-found.tsx     # Custom 404 page
+│   ├── page.tsx          # Home page
+│   └── types/            # TypeScript types for app-specific data
+├── ai/                   # AI SDK related files (chat, providers)
+├── components/           # Reusable React components
+│   ├── ui/               # Shadcn/ui components
+│   ├── dashboard/        # Dashboard specific components
+│   ├── faucet/           # Faucet specific components
+│   ├── solana-pay/       # Solana Pay specific components
+│   └── swap/             # Swap specific components
+├── config/               # Site configuration
+├── db/                   # Database schema and queries (Drizzle ORM)
+├── hooks/                # Custom React hooks
+├── lib/                  # Utility functions and helpers
+│   ├── auth/             # Authentication utilities
+│   ├── format/           # Formatting utilities
+│   ├── jupiter/          # Jupiter API integration
+│   ├── solana/           # Solana blockchain interaction utilities
+│   └── utils.ts          # General utilities
+├── public/               # Static assets
+├── scripts/              # Database migration scripts
+├── server/               # Server-side actions
+├── styles/               # Additional global styles
+├── tailwind.config.ts    # Tailwind CSS configuration
+├── tsconfig.json         # TypeScript configuration
+└── package.json          # Project dependencies and scripts
 \`\`\`
 
 ## Learn More
 
-To learn more about Next.js, take a look at the following resources:
+To learn more about the technologies used in this project, take a look at the following resources:
 
 - [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
 - [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- [Shadcn/ui Documentation](https://ui.shadcn.com/docs) - learn about Shadcn/ui components.
+- [Tailwind CSS Documentation](https://tailwindcss.com/docs) - learn about Tailwind CSS.
+- [Neon Documentation](https://neon.tech/docs) - learn about Neon database.
+- [Drizzle ORM Documentation](https://orm.drizzle.team/docs/overview/postgresql) - learn about Drizzle ORM.
+- [Privy Documentation](https://docs.privy.io/) - learn about Privy authentication.
+- [Solana Web3.js Documentation](https://solana-web3.github.io/solana-web3.js/) - learn about Solana blockchain interaction.
+- [Jupiter API Documentation](https://station.jup.ag/docs/apis/overview) - learn about Jupiter Aggregator API.
+- [Solana Pay Documentation](https://solanapay.com/docs) - learn about Solana Pay.
+- [AI SDK Documentation](https://sdk.vercel.ai/docs) - learn about AI SDK.
 
 You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js/) - your feedback and contributions are welcome!
 
 ## Deploy on Vercel
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-button) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/deployment) for more details.
-
-## Contributing
-
-Contributions are welcome! Please feel free to open issues or submit pull requests.
-
-## License
-
-This project is licensed under the MIT License.

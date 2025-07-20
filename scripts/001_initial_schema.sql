@@ -1,24 +1,25 @@
-CREATE TABLE IF NOT EXISTS "users" (
-	"id" text PRIMARY KEY NOT NULL,
-	"email" text NOT NULL,
-	"username" text NOT NULL,
-	"wallet_address" text NOT NULL,
-	"created_at" timestamp DEFAULT now() NOT NULL,
-	"updated_at" timestamp DEFAULT now() NOT NULL
+CREATE TABLE IF NOT EXISTS users (
+  id SERIAL PRIMARY KEY,
+  privy_id TEXT NOT NULL UNIQUE,
+  email TEXT,
+  wallet_address TEXT NOT NULL UNIQUE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
---> statement-breakpoint
-CREATE TABLE IF NOT EXISTS "transactions" (
-	"id" text PRIMARY KEY NOT NULL,
-	"user_id" text NOT NULL,
-	"signature" text NOT NULL,
-	"type" text NOT NULL,
-	"amount" text NOT NULL,
-	"token" text NOT NULL,
-	"timestamp" timestamp DEFAULT now() NOT NULL
+
+CREATE UNIQUE INDEX IF NOT EXISTS privy_id_index ON users (privy_id);
+CREATE UNIQUE INDEX IF NOT EXISTS wallet_address_index ON users (wallet_address);
+
+CREATE TABLE IF NOT EXISTS transactions (
+  id SERIAL PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  signature TEXT NOT NULL UNIQUE,
+  type TEXT NOT NULL,
+  amount TEXT NOT NULL,
+  token_symbol TEXT NOT NULL,
+  timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+  status TEXT NOT NULL,
+  fee TEXT
 );
---> statement-breakpoint
-DO $$ BEGIN
- ALTER TABLE "transactions" ADD CONSTRAINT "transactions_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE no action ON UPDATE no action;
-EXCEPTION
- WHEN duplicate_object THEN null;
-END $$;
+
+CREATE UNIQUE INDEX IF NOT EXISTS signature_index ON transactions (signature);
