@@ -4,10 +4,10 @@ import type React from "react"
 
 import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
+import type { ColumnDef } from "@tanstack/react-table"
+import { ArrowUpDown } from "lucide-react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
   Pagination,
   PaginationContent,
@@ -16,63 +16,120 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination"
 import { formatAddress } from "@/app/lib/format/address"
-import { formatDateTime } from "@/app/lib/format/date"
-import { formatPrice } from "@/app/lib/format/price"
-import type { Transaction, TransactionType } from "@/app/types/transactions"
+import type { TransactionDetails, TransactionType } from "@/app/types/transactions"
 import Link from "next/link"
+import { Badge } from "@/components/ui/badge"
+import { Input } from "@/components/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 interface RecentTransactionsTableProps {
-  transactions: Transaction[]
+  transactions: TransactionDetails[]
+  currentPage: number
   totalPages: number
+  onPageChange: (page: number) => void
 }
 
-export function RecentTransactionsTable({ transactions, totalPages }: RecentTransactionsTableProps) {
+export function RecentTransactionsTable({
+  transactions,
+  currentPage,
+  totalPages,
+  onPageChange,
+}: RecentTransactionsTableProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
-
-  const [searchQuery, setSearchQuery] = useState(searchParams.get("query") || "")
-  const [currentPage, setCurrentPage] = useState(Number(searchParams.get("page")) || 1)
-  const [selectedType, setSelectedType] = useState<TransactionType | "all">(
+  const [search, setSearch] = useState(searchParams.get("search") || "")
+  const [type, setType] = useState<TransactionType | "all">(
     (searchParams.get("type") as TransactionType | "all") || "all",
   )
 
   useEffect(() => {
     const params = new URLSearchParams(searchParams.toString())
-    params.set("page", currentPage.toString())
-    if (searchQuery) {
-      params.set("query", searchQuery)
+    if (search) {
+      params.set("search", search)
     } else {
-      params.delete("query")
+      params.delete("search")
     }
-    if (selectedType !== "all") {
-      params.set("type", selectedType)
+    if (type !== "all") {
+      params.set("type", type)
     } else {
       params.delete("type")
     }
-    router.push(`?${params.toString()}`, { scroll: false })
-  }, [currentPage, searchQuery, selectedType, router, searchParams])
+    params.set("page", currentPage.toString())
+    router.push(`?${params.toString()}`)
+  }, [search, type, currentPage, router, searchParams])
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault()
-    setCurrentPage(1) // Reset to first page on new search
+  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearch(e.target.value)
+    onPageChange(1) // Reset to first page on new search
   }
 
-  const handleTypeChange = (value: string) => {
-    setSelectedType(value as TransactionType | "all")
-    setCurrentPage(1) // Reset to first page on type change
+  const handleTypeChange = (value: TransactionType | "all") => {
+    setType(value)
+    onPageChange(1) // Reset to first page on new filter
   }
+
+  const handlePageChange = (page: number) => {
+    onPageChange(page)
+  }
+
+  const columns: ColumnDef<TransactionDetails>[] = [
+    {
+      accessorKey: "signature",
+      header: ({ column }) => (
+        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
+          Signature
+          <ArrowUpDown className="ml-2 h-4 w-4" />
+        </Button>
+      ),
+      cell: ({ row }) => (
+        <Link href={`/transactions/${row.original.signature}`} className="text-blue-500 hover:underline">
+          {formatAddress(row.original.signature)}
+        </Link>
+      ),
+    },
+    {
+      accessorKey: "type",
+      header: "Type",
+      cell: ({ row }) => {
+        const type: TransactionType = row.getValue("type")
+        let variant: "default" | "secondary" | "destructive" | "outline" = "default"
+        switch (type) {
+          case "transfer":
+            variant = "secondary"
+            break
+          case "swap":
+            variant = "primary" // Assuming primary is a good fit for swaps
+            break
+          case "mint":
+            variant = "outline"
+            break
+          case "unknown":
+          default:
+            variant = "destructive"
+            break
+        }
+        return <Badge variant={variant}>{type.replace(/_/g, " ")}</Badge>
+      },
+    },
+    {
+      accessorKey: "timestamp",
+      header: "Timestamp",
+    },
+    {
+      accessorKey: "status",
+      header: "Status",
+      cell: ({ row }) => {
+        const status = row.getValue("status")
+        return <Badge variant={status === "Failed" ? "destructive" : "default"}>{status}</Badge>
+      },
+    },
+  ]
 
   return (
     <div className="space-y-4">
-      <form onSubmit={handleSearch} className="flex gap-2">
-        <Input
-          type="text"
-          placeholder="Search by signature..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="max-w-sm"
-        />
-        <Select onValueChange={handleTypeChange} value={selectedType}>
+      <div className="mb-4 flex flex-col gap-2 sm:flex-row">
+        <Input placeholder="Search by signature..." value={search} onChange={handleSearch} className="flex-1" />
+        <Select value={type} onValueChange={handleTypeChange}>
           <SelectTrigger className="w-[180px]">
             <SelectValue placeholder="Filter by type" />
           </SelectTrigger>
@@ -81,39 +138,37 @@ export function RecentTransactionsTable({ transactions, totalPages }: RecentTran
             <SelectItem value="transfer">Transfer</SelectItem>
             <SelectItem value="swap">Swap</SelectItem>
             <SelectItem value="mint">Mint</SelectItem>
-            <SelectItem value="unknown">Unknown</SelectItem>
+            <SelectItem value="unknown">Other</SelectItem>
           </SelectContent>
         </Select>
-        <Button type="submit">Search</Button>
-      </form>
-
+      </div>
       <div className="rounded-md border">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Signature</TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead>Amount</TableHead>
-              <TableHead>Date</TableHead>
+              {columns.map((column) => (
+                <TableHead key={column.accessorKey as string}>{column.header}</TableHead>
+              ))}
             </TableRow>
           </TableHeader>
           <TableBody>
-            {transactions.length > 0 ? (
+            {transactions.length ? (
               transactions.map((transaction) => (
                 <TableRow key={transaction.signature}>
-                  <TableCell className="font-medium">
-                    <Link href={`/transactions/${transaction.signature}`} className="hover:underline">
-                      {formatAddress(transaction.signature, 8)}
-                    </Link>
-                  </TableCell>
-                  <TableCell>{transaction.type}</TableCell>
-                  <TableCell>{transaction.amount ? formatPrice(transaction.amount) : "N/A"}</TableCell>
-                  <TableCell>{formatDateTime(transaction.timestamp)}</TableCell>
+                  {columns.map((column) => (
+                    <TableCell key={column.accessorKey as string}>
+                      {column.cell
+                        ? column.cell({
+                            row: { original: transaction, getValue: (key: string) => (transaction as any)[key] } as any,
+                          })
+                        : (transaction as any)[column.accessorKey as string]}
+                    </TableCell>
+                  ))}
                 </TableRow>
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={4} className="h-24 text-center">
+                <TableCell colSpan={columns.length} className="h-24 text-center">
                   No transactions found.
                 </TableCell>
               </TableRow>
@@ -121,41 +176,19 @@ export function RecentTransactionsTable({ transactions, totalPages }: RecentTran
           </TableBody>
         </Table>
       </div>
-
-      {totalPages > 1 && (
-        <Pagination>
-          <PaginationContent>
-            <PaginationItem>
-              <PaginationPrevious
-                href="#"
-                onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-                aria-disabled={currentPage <= 1}
-                tabIndex={currentPage <= 1 ? -1 : undefined}
-                className={currentPage <= 1 ? "pointer-events-none opacity-50" : undefined}
-              />
+      <Pagination>
+        <PaginationContent>
+          <PaginationPrevious onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage <= 1} />
+          {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+            <PaginationItem key={page}>
+              <Button variant={currentPage === page ? "outline" : "ghost"} onClick={() => handlePageChange(page)}>
+                {page}
+              </Button>
             </PaginationItem>
-            {[...Array(totalPages)].map((_, index) => (
-              <PaginationItem key={index}>
-                <Button
-                  variant={currentPage === index + 1 ? "default" : "outline"}
-                  onClick={() => setCurrentPage(index + 1)}
-                >
-                  {index + 1}
-                </Button>
-              </PaginationItem>
-            ))}
-            <PaginationItem>
-              <PaginationNext
-                href="#"
-                onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
-                aria-disabled={currentPage >= totalPages}
-                tabIndex={currentPage >= totalPages ? -1 : undefined}
-                className={currentPage >= totalPages ? "pointer-events-none opacity-50" : undefined}
-              />
-            </PaginationItem>
-          </PaginationContent>
-        </Pagination>
-      )}
+          ))}
+          <PaginationNext onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage >= totalPages} />
+        </PaginationContent>
+      </Pagination>
     </div>
   )
 }

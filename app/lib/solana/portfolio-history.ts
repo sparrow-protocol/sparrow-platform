@@ -1,5 +1,6 @@
-import { getWalletBalances } from "./wallet-balances"
-import type { HistoricalDataPoint } from "@/app/types/chart"
+import type { PublicKey } from "@solana/web3.js"
+import { MOCK_PORTFOLIO_HISTORY } from "@/app/lib/mock-data"
+import type { PortfolioHistoryData } from "@/app/types/wallet"
 
 // Mock historical price data for common tokens (replace with real API calls)
 const MOCK_HISTORICAL_PRICES: { [key: string]: { [date: string]: number } } = {
@@ -74,33 +75,15 @@ const MOCK_HISTORICAL_PRICES: { [key: string]: { [date: string]: number } } = {
   // Add more mock historical prices for other tokens as needed
 }
 
-export async function getPortfolioHistory(userId: string): Promise<HistoricalDataPoint[]> {
-  // In a real application, you would fetch historical balances and prices from a database/API.
-  // For this example, we'll simulate historical data based on current balances and mock prices.
-
-  const walletBalances = await getWalletBalances(userId)
-
-  const historicalData: { [date: string]: number } = {}
-
-  // Generate data for the last 30 days
-  for (let i = 29; i >= 0; i--) {
-    const date = new Date()
-    date.setDate(date.getDate() - i)
-    const dateString = date.toISOString().split("T")[0] // YYYY-MM-DD
-
-    let dailyPortfolioValue = 0
-
-    for (const balance of walletBalances) {
-      const historicalPrice = MOCK_HISTORICAL_PRICES[balance.mintAddress]?.[dateString] || balance.pricePerUsd
-      dailyPortfolioValue += balance.balance * historicalPrice
-    }
-    historicalData[dateString] = dailyPortfolioValue
-  }
-
-  // Convert to array of HistoricalDataPoint
-  const sortedDates = Object.keys(historicalData).sort()
-  return sortedDates.map((date) => ({
-    date,
-    value: historicalData[date],
-  }))
+/**
+ * Fetches historical portfolio value.
+ * This is currently mock data and should be replaced with real data fetching
+ * from a historical data API or a database that tracks portfolio value over time.
+ * @returns A promise that resolves to an array of PortfolioHistoryData.
+ */
+export async function getPortfolioHistory(walletAddress: PublicKey): Promise<PortfolioHistoryData[]> {
+  // In a real application, you would fetch this data from a database or a Solana indexer
+  // For now, we'll return mock data.
+  console.log(`Fetching portfolio history for ${walletAddress.toBase58()}`)
+  return MOCK_PORTFOLIO_HISTORY
 }

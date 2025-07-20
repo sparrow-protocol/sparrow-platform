@@ -1,18 +1,24 @@
 "use client"
 
 import * as React from "react"
-import { Check, Copy } from "lucide-react"
+import { CheckIcon, CopyIcon } from "@radix-ui/react-icons"
 
 import { cn } from "@/lib/utils"
 import { Button, type ButtonProps } from "@/components/ui/button"
-import { toast } from "sonner"
 
 interface CopyButtonProps extends ButtonProps {
   value: string
-  src?: string
+  copyLabel?: string
+  copiedLabel?: string
 }
 
-export function CopyButton({ value, className, src, ...props }: CopyButtonProps) {
+export function CopyButton({
+  value,
+  className,
+  copyLabel = "Copy",
+  copiedLabel = "Copied",
+  ...props
+}: CopyButtonProps) {
   const [hasCopied, setHasCopied] = React.useState(false)
 
   React.useEffect(() => {
@@ -25,18 +31,15 @@ export function CopyButton({ value, className, src, ...props }: CopyButtonProps)
     <Button
       size="icon"
       variant="ghost"
-      className={cn("relative h-8 w-8", className)}
+      className={cn("relative z-10 h-6 w-6 text-zinc-50 hover:bg-zinc-700 hover:text-zinc-50", className)}
       onClick={() => {
-        if (typeof window !== "undefined") {
-          navigator.clipboard.writeText(value)
-          setHasCopied(true)
-          toast.success("Copied to clipboard!")
-        }
+        navigator.clipboard.writeText(value)
+        setHasCopied(true)
       }}
       {...props}
     >
-      <span className="sr-only">Copy</span>
-      {hasCopied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+      <span className="sr-only">{hasCopied ? copiedLabel : copyLabel}</span>
+      {hasCopied ? <CheckIcon className="h-3 w-3" /> : <CopyIcon className="h-3 w-3" />}
     </Button>
   )
 }

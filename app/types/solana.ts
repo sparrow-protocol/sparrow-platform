@@ -1,16 +1,16 @@
-import type { PublicKey, TransactionSignature } from "@solana/web3.js"
+import type { PublicKey } from "@solana/web3.js"
 
-export interface SolanaTokenAccount {
-  pubkey: PublicKey
+export type SolanaNetwork = "mainnet-beta" | "devnet" | "testnet"
+
+export type TokenInfo = {
   mint: PublicKey
-  amount: number // In token units (not raw lamports)
+  name: string
+  symbol: string
   decimals: number
+  logoURI?: string
 }
 
-export interface SolanaTransactionDetails {
-  signature: TransactionSignature
-  blockTime: number // Unix timestamp
-  status: "success" | "failed"
-  fee: number // In SOL
-  // Add more details as needed, e.g., parsed instructions
+export type SolanaWallet = {
+  publicKey: PublicKey
+  balance: number // in SOL
 }

@@ -1,95 +1,166 @@
 "use client"
 
-import { useState } from "react"
-import { PublicKey } from "@solana/web3.js"
-import QRCode from "qrcode.react"
-import { Button } from "@/components/ui/button"
+import { useState, useMemo } from "react"
+import { PublicKey, type Transaction, VersionedTransaction } from "@solana/web3.js"
+import { useWallet, useConnection } from "@solana/wallet-adapter-react"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { createSolanaPayUrl } from "@/app/lib/solana/solana-pay-url"
-import { useToast } from "@/hooks/use-toast"
-import { CopyButton } from "@/components/copy-button"
+import { toast } from "@/components/ui/use-toast"
+import { transferSPLToken, sendVersionedTransaction } from "@/app/lib/defi-api"
+import { useEmbeddedWallet } from "@/app/hooks/use-embedded-wallet"
+import { Loader2 } from "lucide-react"
 
 export function SendPaymentForm() {
-  const [recipient, setRecipient] = useState("")
-  const [amount, setAmount] = useState("")
-  const [solanaPayUrl, setSolanaPayUrl] = useState<URL | null>(null)
-  const { toast } = useToast()
+  const { connection } = useConnection()
+  const { publicKey: solanaPublicKey, signTransaction } = useWallet()
+  const { embeddedWallet, embeddedWalletAddress } = useEmbeddedWallet()
 
-  const handleGenerateUrl = () => {
-    try {
-      const recipientPk = new PublicKey(recipient)
-      const amountNum = Number.parseFloat(amount)
+  const userPublicKey = useMemo(() => {
+    if (embeddedWalletAddress) return new PublicKey(embeddedWalletAddress)
+    if (solanaPublicKey) return solanaPublicKey
+    return null
+  }, [embeddedWalletAddress, solanaPublicKey])
 
-      if (isNaN(amountNum) || amountNum <= 0) {
-        throw new Error("Invalid amount")
-      }
+  const [recipientAddress, setRecipientAddress] = useState("")
+  const [mintAddress, setMintAddress] = useState("So11111111111111111111111111111111111111112") // Default to SOL
+  const [amount, setAmount] = useState("0.01")
+  const [decimals, setDecimals] = useState(9) // Default for SOL
+  const [loading, setLoading] = useState(false)
 
-      const url = createSolanaPayUrl({
-        recipient: recipientPk,
-        amount: amountNum,
-        message: "Sparrow Web App Payment",
-      })
-      setSolanaPayUrl(url)
+  const handleSend = async () => {
+    if (!userPublicKey) {
       toast({
-        title: "Solana Pay URL Generated",
-        description: "Scan the QR code or copy the URL.",
-      })
-    } catch (error: any) {
-      toast({
-        title: "Error generating URL",
-        description: error.message || "Please check recipient address and amount.",
+        title: "Error",
+        description: "Please connect your wallet or log in to send payments.",
         variant: "destructive",
       })
-      setSolanaPayUrl(null)
+      return
+    }
+
+    if (!recipientAddress || !amount || !mintAddress) {
+      toast({
+        title: "Error",
+        description: "Please fill in all fields.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setLoading(true)
+    try {
+      const recipientPublicKey = new PublicKey(recipientAddress)
+      const tokenMintPublicKey = new PublicKey(mintAddress)
+      const transferAmount = Number.parseFloat(amount)
+
+      const transaction = await transferSPLToken(
+        userPublicKey,
+        recipientPublicKey,
+        tokenMintPublicKey,
+        transferAmount,
+        decimals,
+      )
+
+      const blockhash = await connection.getLatestBlockhash()
+      transaction.recentBlockhash = blockhash.blockhash
+      transaction.feePayer = userPublicKey
+
+      let signedTransaction: Transaction
+
+      if (embeddedWallet) {
+        // Sign with Privy embedded wallet
+        const messageV0 = transaction.compileMessage()
+        const versionedTransaction = new VersionedTransaction(messageV0)
+        signedTransaction = await embeddedWallet.signTransaction(versionedTransaction)
+      } else if (signTransaction) {
+        // Sign with external Solana wallet adapter
+        signedTransaction = await signTransaction(transaction)
+      } else {
+        throw new Error("No signing method available.")
+      }
+
+      const txid = await sendVersionedTransaction(signedTransaction)
+
+      toast({
+        title: "Payment Sent!",
+        description: `Transaction ID: ${txid}`,
+      })
+      setRecipientAddress("")
+      setAmount("0.01")
+    } catch (error) {
+      console.error("Send payment error:", error)
+      toast({
+        title: "Error",
+        description: "Failed to send payment. Please check the address and amount.",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
     }
   }
 
   return (
     <Card className="w-full max-w-md">
       <CardHeader>
-        <CardTitle>Send Solana Pay</CardTitle>
+        <CardTitle>Send Payment</CardTitle>
+        <CardDescription>Send tokens to any Solana address.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div>
-          <Label htmlFor="recipient">Recipient Address</Label>
+          <Label htmlFor="recipient-address">Recipient Address</Label>
           <Input
-            id="recipient"
-            placeholder="Enter Solana address"
-            value={recipient}
-            onChange={(e) => setRecipient(e.target.value)}
+            id="recipient-address"
+            placeholder="Enter recipient's Solana address"
+            value={recipientAddress}
+            onChange={(e) => setRecipientAddress(e.target.value)}
+            className="mt-1"
           />
         </div>
         <div>
-          <Label htmlFor="amount">Amount (SOL)</Label>
+          <Label htmlFor="mint-address">Token Mint Address</Label>
+          <Input
+            id="mint-address"
+            placeholder="e.g., So1111... (SOL)"
+            value={mintAddress}
+            onChange={(e) => setMintAddress(e.target.value)}
+            className="mt-1"
+          />
+        </div>
+        <div>
+          <Label htmlFor="amount">Amount</Label>
           <Input
             id="amount"
             type="number"
-            step="any"
             placeholder="0.00"
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
+            min="0"
+            step="any"
+            className="mt-1"
           />
         </div>
-        <Button onClick={handleGenerateUrl} className="w-full">
-          Generate Payment QR
+        <div>
+          <Label htmlFor="decimals">Token Decimals</Label>
+          <Input
+            id="decimals"
+            type="number"
+            value={decimals}
+            onChange={(e) => setDecimals(Number.parseInt(e.target.value))}
+            min="0"
+            step="1"
+            className="mt-1"
+          />
+        </div>
+        <Button onClick={handleSend} disabled={loading || !userPublicKey} className="w-full">
+          {loading ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Sending...
+            </>
+          ) : (
+            "Send Payment"
+          )}
         </Button>
-
-        {solanaPayUrl && (
-          <div className="flex flex-col items-center space-y-4 mt-4">
-            <div className="p-2 border rounded-lg">
-              <QRCode value={solanaPayUrl.toString()} size={256} level="H" />
-            </div>
-            <div className="flex items-center space-x-2 w-full">
-              <Input readOnly value={solanaPayUrl.toString()} className="flex-grow" />
-              <CopyButton value={solanaPayUrl.toString()} />
-            </div>
-            <p className="text-sm text-muted-foreground text-center">
-              Scan this QR code with a Solana wallet app to send payment.
-            </p>
-          </div>
-        )}
       </CardContent>
     </Card>
   )

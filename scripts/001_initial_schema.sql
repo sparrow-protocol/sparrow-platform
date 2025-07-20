@@ -1,32 +1,24 @@
--- Create users table
-CREATE TABLE IF NOT EXISTS users (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    privy_id TEXT UNIQUE NOT NULL,
-    wallet_address TEXT UNIQUE NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    last_login TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
+CREATE TABLE IF NOT EXISTS "users" (
+	"id" text PRIMARY KEY NOT NULL,
+	"email" text NOT NULL,
+	"username" text NOT NULL,
+	"wallet_address" text NOT NULL,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL
 );
-
--- Create transactions table
-CREATE TABLE IF NOT EXISTS transactions (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    signature TEXT UNIQUE NOT NULL,
-    type TEXT NOT NULL, -- e.g., 'swap', 'solana_pay', 'transfer'
-    amount TEXT NOT NULL, -- Store as string to avoid precision issues
-    token_mint TEXT, -- Mint address of the token involved
-    status TEXT NOT NULL, -- e.g., 'pending', 'confirmed', 'failed'
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    from_token_mint TEXT,
-    to_token_mint TEXT,
-    from_amount TEXT,
-    to_amount TEXT,
-    price_impact TEXT
+--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS "transactions" (
+	"id" text PRIMARY KEY NOT NULL,
+	"user_id" text NOT NULL,
+	"signature" text NOT NULL,
+	"type" text NOT NULL,
+	"amount" text NOT NULL,
+	"token" text NOT NULL,
+	"timestamp" timestamp DEFAULT now() NOT NULL
 );
-
--- Add indexes for faster lookups
-CREATE INDEX IF NOT EXISTS idx_users_privy_id ON users(privy_id);
-CREATE INDEX IF NOT EXISTS idx_users_wallet_address ON users(wallet_address);
-CREATE INDEX IF NOT EXISTS idx_transactions_user_id ON transactions(user_id);
-CREATE INDEX IF NOT EXISTS idx_transactions_signature ON transactions(signature);
+--> statement-breakpoint
+DO $$ BEGIN
+ ALTER TABLE "transactions" ADD CONSTRAINT "transactions_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE no action ON UPDATE no action;
+EXCEPTION
+ WHEN duplicate_object THEN null;
+END $$;

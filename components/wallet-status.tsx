@@ -2,44 +2,42 @@
 
 import { useWallet } from "@solana/wallet-adapter-react"
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui"
+import { usePrivy } from "@privy-io/react-auth"
+import { useEmbeddedWallet } from "@/app/hooks/use-embedded-wallet"
+import { shortenAddress } from "@/app/lib/format"
 import { Button } from "@/components/ui/button"
-import { formatAddress } from "@/app/lib/format/address"
-import { CopyButton } from "@/components/copy-button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { LogOut, Wallet } from "lucide-react"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { WalletIcon } from "lucide-react"
 
 export function WalletStatus() {
-  const { publicKey, connected, disconnect } = useWallet()
+  const { connected, publicKey } = useWallet()
+  const { embeddedWalletAddress } = useEmbeddedWallet()
+  const { authenticated } = usePrivy()
 
-  if (!connected || !publicKey) {
-    return <WalletMultiButton />
+  const displayAddress = embeddedWalletAddress || publicKey?.toBase58()
+
+  if (!authenticated) {
+    return null // Only show wallet status if authenticated
   }
 
-  const formattedAddress = formatAddress(publicKey.toBase58())
+  if (!connected && !embeddedWalletAddress) {
+    return <WalletMultiButton />
+  }
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="outline" className="flex items-center gap-2 bg-transparent">
-          <Wallet className="h-4 w-4" />
-          {formattedAddress}
+          <WalletIcon className="h-4 w-4" />
+          {displayAddress ? shortenAddress(displayAddress) : "Connect Wallet"}
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-56">
-        <DropdownMenuItem className="flex items-center justify-between">
-          <span>{formattedAddress}</span>
-          <CopyButton value={publicKey.toBase58()} />
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem className="cursor-default">
+          Connected: {displayAddress ? shortenAddress(displayAddress) : "N/A"}
         </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={disconnect} className="text-destructive focus:text-destructive">
-          <LogOut className="mr-2 h-4 w-4" />
-          Disconnect
+        <DropdownMenuItem>
+          <WalletMultiButton />
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

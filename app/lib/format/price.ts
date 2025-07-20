@@ -1,13 +1,11 @@
-export function formatPrice(value: number | string, currency = "USD", locale = "en-US"): string {
-  const numValue = typeof value === "string" ? Number.parseFloat(value) : value
-  if (isNaN(numValue)) {
+export function formatPrice(price: number | null | undefined, currency = "USD"): string {
+  if (price === null || price === undefined) {
     return "N/A"
   }
-
-  return new Intl.NumberFormat(locale, {
+  return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: currency,
     minimumFractionDigits: 2,
-    maximumFractionDigits: 6, // Allow more for crypto prices
-  }).format(numValue)
+    maximumFractionDigits: 6, // For crypto prices
+  }).format(price)
 }

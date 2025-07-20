@@ -1,12 +1,5 @@
-import { Icons } from "@/components/ui/icons"
-import { siteConfig } from "@/config/site"
-import Link from "next/link"
+import Image from "next/image"
 
 export function Logo() {
-  return (
-    <Link href="/" className="mr-6 flex items-center space-x-2">
-      <Icons.wallet className="h-6 w-6" />
-      <span className="hidden font-bold sm:inline-block">{siteConfig.name}</span>
-    </Link>
-  )
+  return <Image src="/placeholder-logo.png" alt="Sparrow Logo" width={32} height={32} className="rounded-full" />
 }

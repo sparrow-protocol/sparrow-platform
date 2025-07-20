@@ -1,67 +1,46 @@
 "use client"
+
+import * as React from "react"
 import Link from "next/link"
 import { useSelectedLayoutSegment } from "next/navigation"
 
 import { siteConfig } from "@/config/site"
 import { cn } from "@/lib/utils"
 import { Icons } from "@/components/ui/icons"
+import { MobileNav } from "@/components/mobile-nav"
 
 export function MainNav() {
   const segment = useSelectedLayoutSegment()
+  const [showMobileMenu, setShowMobileMenu] = React.useState<boolean>(false)
 
   return (
-    <div className="mr-4 hidden md:flex">
-      <Link href="/" className="mr-6 flex items-center space-x-2">
-        <Icons.logo className="h-6 w-6" aria-hidden="true" />
+    <div className="flex gap-6 md:gap-10">
+      <Link href="/" className="hidden items-center space-x-2 md:flex">
+        <Icons.logo className="h-6 w-6" />
         <span className="hidden font-bold sm:inline-block">{siteConfig.name}</span>
-        <span className="sr-only">Home</span>
       </Link>
-      <nav className="flex items-center gap-6 text-sm font-medium">
-        <Link
-          href="/dashboard"
-          className={cn(
-            "transition-colors hover:text-foreground/80",
-            segment === "dashboard" ? "text-foreground" : "text-foreground/60",
-          )}
-        >
-          Dashboard
-        </Link>
-        <Link
-          href="/swap"
-          className={cn(
-            "transition-colors hover:text-foreground/80",
-            segment === "swap" ? "text-foreground" : "text-foreground/60",
-          )}
-        >
-          Swap
-        </Link>
-        <Link
-          href="/pay"
-          className={cn(
-            "transition-colors hover:text-foreground/80",
-            segment === "pay" ? "text-foreground" : "text-foreground/60",
-          )}
-        >
-          Pay
-        </Link>
-        <Link
-          href="/faucet"
-          className={cn(
-            "transition-colors hover:text-foreground/80",
-            segment === "faucet" ? "text-foreground" : "text-foreground/60",
-          )}
-        >
-          Faucet
-        </Link>
-        <Link
-          href={siteConfig.links.github}
-          className={cn("hidden text-foreground/60 transition-colors hover:text-foreground/80 lg:block")}
-          target="_blank"
-          rel="noreferrer"
-        >
-          GitHub
-        </Link>
-      </nav>
+      {siteConfig.mainNav?.length ? (
+        <nav className="hidden gap-6 md:flex">
+          {siteConfig.mainNav?.map((item, index) => (
+            <Link
+              key={index}
+              href={item.disabled ? "#" : item.href}
+              className={cn(
+                "flex items-center text-lg font-medium transition-colors hover:text-foreground/80 sm:text-sm",
+                item.href.startsWith(`/${segment}`) ? "text-foreground" : "text-foreground/60",
+                item.disabled && "cursor-not-allowed opacity-80",
+              )}
+            >
+              {item.title}
+            </Link>
+          ))}
+        </nav>
+      ) : null}
+      <button className="flex items-center space-x-2 md:hidden" onClick={() => setShowMobileMenu(!showMobileMenu)}>
+        {showMobileMenu ? <Icons.close /> : <Icons.logo />}
+        <span className="font-bold">Menu</span>
+      </button>
+      {showMobileMenu && <MobileNav items={siteConfig.mainNav} onClose={() => setShowMobileMenu(false)} />}
     </div>
   )
 }

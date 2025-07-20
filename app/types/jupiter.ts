@@ -1,5 +1,26 @@
-import type { Token, QuoteResponse, SwapResponse } from "@jup-ag/quoted-display-api"
+export type JupiterQuoteResponse = {
+  inAmount: string
+  outAmount: string
+  outAmountWithSlippage: string
+  priceImpactPct: number
+  routePlan: any[] // Simplified, can be more detailed if needed
+  swapMode: string
+  slippageBps: number
+  timeTaken: number
+}
 
-export type JupiterToken = Token
-export type JupiterQuoteResponse = QuoteResponse
-export type JupiterSwapResponse = SwapResponse
+export type JupiterSwapInstructionsResponse = {
+  swapRequest: {
+    swapTransaction: string // Base64 encoded transaction
+  }
+}
+
+export type JupiterToken = {
+  address: string
+  chainId: number
+  decimals: number
+  name: string
+  symbol: string
+  logoURI: string
+  tags: string[]
+}

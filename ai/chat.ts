@@ -1,110 +1,54 @@
-"use server"
-
-import { streamText } from "ai"
+import { generateText, streamText } from "ai"
 import { openai } from "@ai-sdk/openai"
-import { createStreamableValue } from "ai/rsc"
-import { getAuthenticatedUser } from "@/app/lib/auth/auth"
-import { getUserStats } from "@/server/actions/user"
-import { getJupiterPrice } from "@/app/lib/jupiter/jupiter-api"
-import { getTokenPrice } from "@/app/lib/defi-api"
-import { formatPrice } from "@/app/lib/format/price"
-import { getJupiterTokenByMint } from "@/app/lib/jupiter/jupiter-token"
-import { PublicKey } from "@solana/web3.js"
+import type { CoreMessage } from "ai"
+import { FAL_KEY } from "@/app/lib/constants"
+import fal from "@fal-ai/serverless"
 
-export async function chat(input: string) {
-  const user = await getAuthenticatedUser()
-  const stream = createStreamableValue()
+export async function generateAIResponse(messages: CoreMessage[]) {
+  const { text } = await generateText({
+    model: openai("gpt-4o"),
+    messages,
+  })
+  return text
+}
 
-  // Example tool definitions
-  const tools = {
-    getUserStats: {
-      description: "Get statistics about the current user's activity.",
-      parameters: {
-        type: "object",
-        properties: {},
-      },
-      execute: async () => {
-        const stats = await getUserStats()
-        return `User Stats: Total Transactions: ${stats.totalTransactions}, Total Value Swapped: ${stats.totalValueSwapped}, Member Since: ${stats.memberSince}`
-      },
-    },
-    getTokenPrice: {
-      description: "Get the current price of a Solana token.",
-      parameters: {
-        type: "object",
-        properties: {
-          mintAddress: {
-            type: "string",
-            description: "The mint address of the Solana token.",
-          },
-        },
-        required: ["mintAddress"],
-      },
-      execute: async ({ mintAddress }: { mintAddress: string }) => {
-        try {
-          // Validate if it's a valid Solana public key
-          new PublicKey(mintAddress)
-        } catch (e) {
-          return "Invalid Solana mint address provided."
-        }
+export async function streamAIResponse(messages: CoreMessage[]) {
+  const result = await streamText({
+    model: openai("gpt-4o"),
+    messages,
+  })
+  return result.toReadableStream()
+}
 
-        const price = await getTokenPrice(mintAddress)
-        const tokenInfo = await getJupiterTokenByMint(mintAddress)
-
-        if (price !== null) {
-          return `The current price of ${tokenInfo?.symbol || mintAddress} is ${formatPrice(price)} USD.`
-        } else {
-          return `Could not fetch price for token with mint address ${mintAddress}.`
-        }
-      },
-    },
-    getJupiterTokenPrice: {
-      description: "Get the current price of a token listed on Jupiter.",
-      parameters: {
-        type: "object",
-        properties: {
-          mintAddress: {
-            type: "string",
-            description: "The mint address of the token.",
-          },
-        },
-        required: ["mintAddress"],
-      },
-      execute: async ({ mintAddress }: { mintAddress: string }) => {
-        try {
-          // Validate if it's a valid Solana public key
-          new PublicKey(mintAddress)
-        } catch (e) {
-          return "Invalid Solana mint address provided."
-        }
-
-        const price = await getJupiterPrice(mintAddress)
-        const tokenInfo = await getJupiterTokenByMint(mintAddress)
-
-        if (price !== null) {
-          return `The current Jupiter price of ${tokenInfo?.symbol || mintAddress} is ${formatPrice(price)} USD.`
-        } else {
-          return `Could not fetch Jupiter price for token with mint address ${mintAddress}.`
-        }
-      },
-    },
+export async function generateImageWithFal(prompt: string) {
+  if (!FAL_KEY) {
+    throw new Error("FAL_KEY is not set. Please set it in your environment variables.")
   }
-  ;(async () => {
-    const { text, toolResults } = await streamText({
-      model: openai("gpt-4o"), // Using OpenAI model
-      messages: [{ role: "user", content: input }],
-      tools,
+
+  try {
+    const result = await fal.subscribe("fal-ai/stable-diffusion-v3-medium", {
+      input: {
+        prompt,
+        num_inference_steps: 25,
+        guidance_scale: 7.5,
+        seed: 0,
+        sync_mode: true,
+      },
+      logs: true,
+      onResult: (r: any) => {
+        if (r.images && r.images.length > 0) {
+          console.log("Image generated:", r.images[0].url)
+        }
+      },
     })
 
-    stream.update(text)
-
-    for await (const toolCall of toolResults) {
-      const output = await toolCall.execute()
-      stream.update(output)
+    if (result.images && result.images.length > 0) {
+      return result.images[0].url
+    } else {
+      throw new Error("No image was generated.")
     }
-
-    stream.done()
-  })()
-
-  return stream.value
+  } catch (error) {
+    console.error("Error generating image with Fal:", error)
+    throw error
+  }
 }

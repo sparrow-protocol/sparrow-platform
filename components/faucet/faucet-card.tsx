@@ -1,26 +1,37 @@
 "use client"
 
 import { useState } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { useToast } from "@/components/ui/use-toast"
-import { Loader2 } from "lucide-react"
 import { useWallet } from "@solana/wallet-adapter-react"
-import { formatAddress } from "@/app/lib/format/address"
-import { FAUCET_PRIVATE_KEY } from "@/app/lib/config"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
+import { Label } from "@/components/ui/label"
+import { toast } from "@/components/ui/use-toast"
+import { useEmbeddedWallet } from "@/app/hooks/use-embedded-wallet"
 
 export function FaucetCard() {
-  const { publicKey } = useWallet()
-  const [recipientAddress, setRecipientAddress] = useState<string>(publicKey?.toBase58() || "")
+  const { publicKey: solanaPublicKey } = useWallet()
+  const { embeddedWalletAddress } = useEmbeddedWallet()
+  const [mintAddress, setMintAddress] = useState("")
+  const [amount, setAmount] = useState("1")
   const [loading, setLoading] = useState(false)
-  const { toast } = useToast()
 
-  const handleRequestSol = async () => {
+  const recipientAddress = embeddedWalletAddress || solanaPublicKey?.toBase58()
+
+  const handleDispense = async () => {
     if (!recipientAddress) {
       toast({
         title: "Error",
-        description: "Please enter a recipient address.",
+        description: "Please connect a wallet or log in to receive tokens.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (!mintAddress) {
+      toast({
+        title: "Error",
+        description: "Please enter a token mint address.",
         variant: "destructive",
       })
       return
@@ -33,28 +44,32 @@ export function FaucetCard() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ recipientAddress }),
+        body: JSON.stringify({
+          recipientAddress,
+          mintAddress,
+          amount: Number.parseFloat(amount),
+        }),
       })
 
       const data = await response.json()
 
       if (response.ok) {
         toast({
-          title: "Success!",
-          description: `0.1 SOL sent to ${formatAddress(recipientAddress)}. Transaction: ${data.signature}`,
+          title: "Success",
+          description: `Tokens dispensed! Transaction: ${data.signature}`,
         })
       } else {
         toast({
           title: "Error",
-          description: data.error || "Failed to send SOL.",
+          description: data.error || "Failed to dispense tokens.",
           variant: "destructive",
         })
       }
     } catch (error) {
-      console.error("Faucet request failed:", error)
+      console.error("Faucet dispense error:", error)
       toast({
         title: "Error",
-        description: "An unexpected error occurred. Please try again.",
+        description: "An unexpected error occurred.",
         variant: "destructive",
       })
     } finally {
@@ -65,38 +80,39 @@ export function FaucetCard() {
   return (
     <Card className="w-full max-w-md">
       <CardHeader>
-        <CardTitle>Devnet SOL Faucet</CardTitle>
-        <CardDescription>Get free Devnet SOL for testing purposes.</CardDescription>
+        <CardTitle>Token Faucet (Devnet)</CardTitle>
+        <CardDescription>Receive free test tokens on Solana Devnet for development and testing.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div>
-          <label htmlFor="recipient-address" className="block text-sm font-medium text-muted-foreground">
-            Recipient Address
-          </label>
+          <Label htmlFor="recipient">Recipient Address</Label>
+          <Input id="recipient" value={recipientAddress || "Connect wallet or log in..."} readOnly className="mt-1" />
+        </div>
+        <div>
+          <Label htmlFor="mint">Token Mint Address</Label>
           <Input
-            id="recipient-address"
-            type="text"
-            placeholder="Enter Solana address"
-            value={recipientAddress}
-            onChange={(e) => setRecipientAddress(e.target.value)}
+            id="mint"
+            placeholder="e.g., Es9onQ... (USDC devnet)"
+            value={mintAddress}
+            onChange={(e) => setMintAddress(e.target.value)}
             className="mt-1"
           />
         </div>
-        <Button onClick={handleRequestSol} disabled={loading || !recipientAddress} className="w-full">
-          {loading ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Sending SOL...
-            </>
-          ) : (
-            "Request 0.1 SOL"
-          )}
+        <div>
+          <Label htmlFor="amount">Amount</Label>
+          <Input
+            id="amount"
+            type="number"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            min="0.000001"
+            step="any"
+            className="mt-1"
+          />
+        </div>
+        <Button onClick={handleDispense} disabled={loading || !recipientAddress}>
+          {loading ? "Dispensing..." : "Dispense Tokens"}
         </Button>
-        {!FAUCET_PRIVATE_KEY && (
-          <p className="text-sm text-red-500">
-            Warning: `FAUCET_PRIVATE_KEY` environment variable is not set. Faucet will not work.
-          </p>
-        )}
       </CardContent>
     </Card>
   )

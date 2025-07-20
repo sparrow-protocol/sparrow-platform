@@ -1,7 +1,28 @@
-import type { InferSelectModel, InferInsertModel } from "drizzle-orm"
-import type { transactions } from "@/db/schema"
+export type TransactionType = "transfer" | "swap" | "program_interaction" | "unknown"
 
-export type SelectTransaction = InferSelectModel<typeof transactions>
-export type InsertTransaction = InferInsertModel<typeof transactions>
+export type Instruction = {
+  programId: string
+  program?: string
+  type?: string
+  info?: any
+  data?: string
+  accounts?: string[]
+}
 
-export type TransactionType = "send" | "receive" | "swap" | "deposit" | "withdraw" | "unknown"
+export type TransactionDetails = {
+  signature: string
+  timestamp: string
+  type: TransactionType
+  status: "success" | "failed"
+  fee: number // in SOL
+  block: number
+  slot: number
+  recentBlockhash: string
+  instructions: Instruction[]
+  logMessages: string[]
+  accountKeys: string[]
+  preBalances: number[]
+  postBalances: number[]
+  preTokenBalances: any[] // Simplified, can be more detailed
+  postTokenBalances: any[] // Simplified, can be more detailed
+}

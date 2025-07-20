@@ -1,32 +1,27 @@
 import Link from "next/link"
+
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 
 export function CallToAction() {
   return (
-    <section className="w-full py-12 md:py-24 lg:py-32 bg-primary text-primary-foreground">
-      <div className="container px-4 md:px-6 text-center">
-        <div className="space-y-4">
-          <h2 className="text-3xl font-bold tracking-tighter sm:text-5xl">
-            Ready to experience the future of Solana DeFi?
-          </h2>
-          <p className="mx-auto max-w-[700px] text-lg md:text-xl">
-            Join Sparrow Web App today and take control of your digital assets with powerful tools and an intelligent AI
-            assistant.
-          </p>
-          <div className="flex flex-col gap-2 min-[400px]:flex-row justify-center">
-            <Button asChild variant="secondary">
-              <Link href="/dashboard">Start Now</Link>
-            </Button>
-            <Button
-              asChild
-              variant="outline"
-              className="border-primary-foreground text-primary-foreground hover:bg-primary/90 bg-transparent"
-            >
-              <Link href="/about">Learn More</Link>
-            </Button>
-          </div>
+    <Card className="w-full max-w-4xl mx-auto text-center">
+      <CardHeader>
+        <CardTitle className="text-3xl font-bold">Ready to get started?</CardTitle>
+        <CardDescription className="mt-2 text-lg">
+          Join Sparrow today and take control of your Solana assets.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="flex justify-center gap-4">
+          <Button asChild size="lg">
+            <Link href="/login">Sign Up Now</Link>
+          </Button>
+          <Button asChild variant="outline" size="lg">
+            <Link href="/dashboard">Learn More</Link>
+          </Button>
         </div>
-      </div>
-    </section>
+      </CardContent>
+    </Card>
   )
 }

@@ -1,57 +1,58 @@
-import { Connection, PublicKey } from "@solana/web3.js"
+import { type Connection, PublicKey } from "@solana/web3.js"
+import { getAssociatedTokenAddressSync, getAccount } from "@solana/spl-token"
+import { MOCK_TOKEN_BALANCES } from "@/app/lib/mock-data"
+import type { TokenBalance } from "@/app/types/wallet"
 import { getTokenPrice } from "@/app/lib/defi-api"
-import { getJupiterTokenByMint } from "@/app/lib/jupiter/jupiter-token"
-import type { WalletBalance } from "@/app/types/wallet"
 
-const SOLANA_RPC_URL = process.env.SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com"
-const connection = new Connection(SOLANA_RPC_URL, "confirmed")
+export async function getWalletBalances(connection: Connection, walletAddress: PublicKey): Promise<TokenBalance[]> {
+  // In a real application, you would fetch actual balances from the Solana network
+  // For now, we'll return mock data and simulate fetching prices.
+  console.log(`Fetching balances for ${walletAddress.toBase58()}`)
 
-export async function getWalletBalances(walletAddress: string): Promise<WalletBalance[]> {
-  if (!walletAddress) {
-    return []
+  const balances: TokenBalance[] = []
+
+  // Fetch SOL balance
+  try {
+    const solBalanceLamports = await connection.getBalance(walletAddress)
+    const solBalance = solBalanceLamports / 1_000_000_000 // Convert lamports to SOL
+    const solPrice = await getTokenPrice("So11111111111111111111111111111111111111112") // SOL mint address
+    balances.push({
+      mintAddress: new PublicKey("So11111111111111111111111111111111111111112"),
+      balance: solBalance,
+      usdValue: solPrice ? solBalance * solPrice : 0,
+      tokenName: "Solana",
+      tokenSymbol: "SOL",
+      icon: "/placeholder.svg",
+      decimals: 9,
+    })
+  } catch (error) {
+    console.error("Error fetching SOL balance:", error)
   }
 
-  const publicKey = new PublicKey(walletAddress)
-  const tokenAccounts = await connection.getTokenAccountsByOwner(publicKey, {
-    programId: new PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5mW"), // SPL Token Program ID
-  })
+  // Fetch SPL token balances (using mock data for other tokens)
+  for (const mockToken of MOCK_TOKEN_BALANCES) {
+    if (mockToken.symbol === "SOL") continue // Already handled SOL
 
-  const balances: WalletBalance[] = []
-
-  // Add SOL balance
-  const solBalanceLamports = await connection.getBalance(publicKey)
-  const solBalance = solBalanceLamports / 1_000_000_000 // Convert lamports to SOL
-  const solPrice = await getTokenPrice("So11111111111111111111111111111111111111112") // SOL Mint Address
-  balances.push({
-    mintAddress: "So11111111111111111111111111111111111111112",
-    tokenSymbol: "SOL",
-    balance: solBalance,
-    usdValue: solBalance * (solPrice || 0),
-    iconUrl:
-      "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png",
-  })
-
-  for (const account of tokenAccounts.value) {
-    const accountInfo = await connection.getParsedAccountInfo(account.pubkey)
-    if (accountInfo.value && accountInfo.value.data) {
-      const parsedInfo = (accountInfo.value.data as any).parsed.info
-      const mintAddress = parsedInfo.mint
-      const amount = parsedInfo.tokenAmount.uiAmount
-
-      if (amount > 0) {
-        const jupiterToken = await getJupiterTokenByMint(mintAddress)
-        const tokenPrice = await getTokenPrice(mintAddress)
-
-        balances.push({
-          mintAddress: mintAddress,
-          tokenSymbol: jupiterToken?.symbol || "UNKNOWN",
-          balance: amount,
-          usdValue: amount * (tokenPrice || 0),
-          iconUrl: jupiterToken?.logoURI || undefined,
-        })
-      }
+    try {
+      const tokenAccountPubkey = getAssociatedTokenAddressSync(mockToken.mintAddress, walletAddress)
+      const tokenAccount = await getAccount(connection, tokenAccountPubkey)
+      const tokenBalance = Number(tokenAccount.amount) / Math.pow(10, mockToken.decimals)
+      const tokenPrice = await getTokenPrice(mockToken.mintAddress.toBase58())
+      balances.push({
+        ...mockToken,
+        balance: tokenBalance,
+        usdValue: tokenPrice ? tokenBalance * tokenPrice : 0,
+      })
+    } catch (error) {
+      // If account not found, balance is 0, or other error, skip this token
+      console.warn(`Could not fetch balance for ${mockToken.symbol}:`, error)
+      balances.push({
+        ...mockToken,
+        balance: 0,
+        usdValue: 0,
+      })
     }
   }
 
-  return balances.sort((a, b) => (b.usdValue || 0) - (a.usdValue || 0))
+  return balances
 }

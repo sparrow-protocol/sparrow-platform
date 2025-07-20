@@ -1,49 +1,35 @@
-import Link from "next/link"
-import { Icons } from "@/components/ui/icons"
+import type React from "react"
 import { siteConfig } from "@/config/site"
+import { cn } from "@/lib/utils"
+import { Icons } from "@/components/ui/icons"
 
-export function SiteFooter() {
+export function SiteFooter({ className }: React.HTMLAttributes<HTMLElement>) {
   return (
-    <footer className="border-t bg-background py-8">
-      <div className="container flex flex-col items-center justify-between gap-6 md:flex-row">
-        <div className="flex flex-col items-center gap-4 md:flex-row md:gap-3">
-          <div className="flex items-center gap-2">
-            <Icons.wallet className="h-6 w-6 text-primary" />
-            <span className="text-lg font-semibold">Sparrow</span>
-          </div>
-          <p className="text-center text-sm text-muted-foreground md:text-left">
-            © 2025 Sparrow Protocol. All rights reserved.
-          </p>
-        </div>
-        <div className="flex items-center gap-6">
-          <div className="flex gap-4">
-            <Link
+    <footer className={cn(className, "border-t")}>
+      <div className="container flex flex-col items-center justify-between gap-4 py-10 md:h-24 md:flex-row md:py-0">
+        <div className="flex flex-col items-center gap-4 px-8 md:flex-row md:gap-2 md:px-0">
+          <Icons.logo />
+          <p className="text-center text-sm leading-loose md:text-left">
+            Built by{" "}
+            <a
               href={siteConfig.links.twitter}
               target="_blank"
               rel="noreferrer"
-              className="text-muted-foreground transition-colors hover:text-foreground"
+              className="font-medium underline underline-offset-4"
             >
-              <Icons.twitter className="h-5 w-5" />
-              <span className="sr-only">Twitter</span>
-            </Link>
-            <Link
+              Vercel
+            </a>
+            . The source code is available on{" "}
+            <a
               href={siteConfig.links.github}
               target="_blank"
               rel="noreferrer"
-              className="text-muted-foreground transition-colors hover:text-foreground"
+              className="font-medium underline underline-offset-4"
             >
-              <Icons.github className="h-5 w-5" />
-              <span className="sr-only">GitHub</span>
-            </Link>
-          </div>
-          <div className="hidden md:flex md:gap-4">
-            <Link href="/terms" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
-              Terms
-            </Link>
-            <Link href="/privacy" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
-              Privacy
-            </Link>
-          </div>
+              GitHub
+            </a>
+            .
+          </p>
         </div>
       </div>
     </footer>

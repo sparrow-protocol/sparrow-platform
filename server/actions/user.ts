@@ -1,26 +1,13 @@
 "use server"
 
-import { db } from "@/db/client"
-import { users } from "@/db/schema"
-import { eq } from "drizzle-orm"
-import { getAuthenticatedUser } from "@/app/lib/auth/auth"
+import { upsertUser as dbUpsertUser } from "@/db/queries"
 
-export async function getUserStats() {
-  const user = await getAuthenticatedUser()
-
-  // Example: Fetch user-specific stats
-  const userRecord = await db.query.users.findFirst({
-    where: eq(users.id, user.id),
-    columns: {
-      id: true,
-      privyId: true,
-      createdAt: true,
-    },
-  })
-
-  return {
-    totalTransactions: 123, // Placeholder
-    totalValueSwapped: "$1,234.56", // Placeholder
-    memberSince: userRecord?.createdAt.toLocaleDateString() || "N/A",
+export async function upsertUser(id: string, email: string, username: string, walletAddress: string) {
+  try {
+    const user = await dbUpsertUser(id, email, username, walletAddress)
+    return { success: true, user }
+  } catch (error) {
+    console.error("Error in upsertUser server action:", error)
+    return { success: false, error: "Failed to upsert user" }
   }
 }

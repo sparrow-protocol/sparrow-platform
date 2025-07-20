@@ -1,4 +1,3 @@
-export function formatAddress(address: string, chars = 4): string {
-  if (!address) return ""
+export function shortenAddress(address: string, chars = 4): string {
   return `${address.substring(0, chars)}...${address.substring(address.length - chars)}`
 }

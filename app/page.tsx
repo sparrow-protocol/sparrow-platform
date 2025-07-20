@@ -1,15 +1,17 @@
-import { HeroSection } from "@/components/hero-section"
-import { FeaturesSection } from "@/components/features-section"
-import { LLMCarousel } from "@/components/llm-carousel"
 import { CallToAction } from "@/components/call-to-action"
+import { FeaturesSection } from "@/components/features-section"
+import { HeroSection } from "@/components/hero-section"
+import { LLMCarousel } from "@/components/llm-carousel"
+import { FAQSection } from "@/components/faq-section"
 
-export default function Page() {
+export default function IndexPage() {
   return (
-    <main className="flex-1">
+    <>
       <HeroSection />
       <FeaturesSection />
       <LLMCarousel />
+      <FAQSection />
       <CallToAction />
-    </main>
+    </>
   )
 }

@@ -2,43 +2,40 @@
 
 import type React from "react"
 import { useMemo } from "react"
-import { ConnectionProvider, WalletProvider as SolanaWalletProvider } from "@solana/wallet-adapter-react"
+import { ConnectionProvider, WalletProvider } from "@solana/wallet-adapter-react"
 import { WalletAdapterNetwork } from "@solana/wallet-adapter-base"
-import { PhantomWalletAdapter } from "@solana/wallet-adapter-phantom"
-import { SolflareWalletAdapter } from "@solana/wallet-adapter-solflare"
+import { PhantomWalletAdapter, SolflareWalletAdapter, TorusWalletAdapter } from "@solana/wallet-adapter-wallets"
 import { WalletModalProvider } from "@solana/wallet-adapter-react-ui"
 import { clusterApiUrl } from "@solana/web3.js"
-import { usePrivy } from "@privy-io/react-auth"
-import { useEmbeddedWallet } from "@/app/hooks/use-embedded-wallet"
-import { useWallets } from "@/hooks/use-wallets"
 
 // Default styles that can be overridden by your app
-import "@solana/wallet-adapter-react-ui/styles.css"
+require("@solana/wallet-adapter-react-ui/styles.css")
 
-export function WalletProvider({ children }: { children: React.ReactNode }) {
-  const network = WalletAdapterNetwork.Devnet // Or Mainnet-beta, Testnet
+export function SolanaWalletProvider({ children }: { children: React.ReactNode }) {
+  // The network can be set to 'devnet', 'testnet', or 'mainnet-beta'.
+  const network = WalletAdapterNetwork.Devnet
+
+  // You can also provide a custom RPC endpoint.
   const endpoint = useMemo(() => clusterApiUrl(network), [network])
 
-  const { wallets: privyWallets } = usePrivy()
-  const { embeddedWallet } = useEmbeddedWallet()
-  const { wallets: allWallets } = useWallets()
-
-  const wallets = useMemo(() => {
-    const adapters = [new PhantomWalletAdapter(), new SolflareWalletAdapter({ network })]
-
-    // Add embedded wallet if available
-    if (embeddedWallet) {
-      adapters.push(embeddedWallet)
-    }
-
-    return adapters
-  }, [network, embeddedWallet])
+  const wallets = useMemo(
+    () => [
+      /**
+       * Wallets that should be configured here are the ones you want to enable for your app.
+       * These are all the wallets supported by the `@solana/wallet-adapter-wallets` library.
+       */
+      new PhantomWalletAdapter(),
+      new SolflareWalletAdapter({ network }),
+      new TorusWalletAdapter(),
+    ],
+    [network],
+  )
 
   return (
     <ConnectionProvider endpoint={endpoint}>
-      <SolanaWalletProvider wallets={wallets} autoConnect>
+      <WalletProvider wallets={wallets} autoConnect>
         <WalletModalProvider>{children}</WalletModalProvider>
-      </SolanaWalletProvider>
+      </WalletProvider>
     </ConnectionProvider>
   )
 }

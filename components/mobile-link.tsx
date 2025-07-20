@@ -1,29 +1,33 @@
 "use client"
 
-import Link from "next/link"
-import { useRouter } from "next/navigation"
+import Link, { type LinkProps } from "next/link"
+import { usePathname, useRouter } from "next/navigation"
 import type * as React from "react"
 
 import { cn } from "@/lib/utils"
 
-interface MobileLinkProps extends React.PropsWithChildren {
-  href: string
-  disabled?: boolean
-  className?: string
+interface MobileLinkProps extends LinkProps {
   onOpenChange?: (open: boolean) => void
+  children: React.ReactNode
+  className?: string
 }
 
-export function MobileLink({ href, disabled, children, className, onOpenChange }: MobileLinkProps) {
+export function MobileLink({ href, onOpenChange, className, children, ...props }: MobileLinkProps) {
   const router = useRouter()
+  const pathname = usePathname()
   return (
     <Link
       href={href}
       onClick={() => {
-        router.push(href)
+        router.push(href.toString())
         onOpenChange?.(false)
       }}
-      className={cn(className)}
-      aria-disabled={disabled}
+      className={cn(
+        "text-foreground/70 transition-colors hover:text-foreground",
+        pathname === href && "text-foreground",
+        className,
+      )}
+      {...props}
     >
       {children}
     </Link>

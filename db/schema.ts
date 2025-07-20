@@ -1,37 +1,53 @@
-import { pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core"
+import { pgTable, text, timestamp, uuid, uniqueIndex } from "drizzle-orm/pg-core"
 import { relations } from "drizzle-orm"
 
-export const users = pgTable("users", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  privyId: text("privy_id").unique().notNull(),
-  walletAddress: text("wallet_address").unique().notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  lastLogin: timestamp("last_login").defaultNow().notNull(),
-})
+export const users = pgTable(
+  "users",
+  {
+    id: text("id").primaryKey().notNull(),
+    privyDID: text("privy_did").notNull().unique(),
+    walletAddress: text("wallet_address").notNull().unique(),
+    email: text("email"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (users) => {
+    return {
+      privyDIDIndex: uniqueIndex("privy_did_index").on(users.privyDID),
+      walletAddressIndex: uniqueIndex("wallet_address_index").on(users.walletAddress),
+    }
+  },
+)
 
 export const usersRelations = relations(users, ({ many }) => ({
   transactions: many(transactions),
   chatMessages: many(chatMessages),
 }))
 
-export const transactions = pgTable("transactions", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  userId: uuid("user_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  signature: text("signature").unique().notNull(),
-  type: text("type").notNull(), // e.g., 'swap', 'solana_pay', 'transfer'
-  amount: text("amount").notNull(), // Store as string to avoid precision issues
-  tokenMint: text("token_mint"), // Mint address of the token involved
-  status: text("status").notNull(), // e.g., 'pending', 'confirmed', 'failed'
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-  fromTokenMint: text("from_token_mint"),
-  toTokenMint: text("to_token_mint"),
-  fromAmount: text("from_amount"),
-  toAmount: text("to_amount"),
-  priceImpact: text("price_impact"),
-})
+export const transactions = pgTable(
+  "transactions",
+  {
+    signature: text("signature").primaryKey().notNull(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id),
+    timestamp: timestamp("timestamp").defaultNow().notNull(),
+    type: text("type").notNull(), // e.g., 'transfer', 'swap', 'mint'
+    status: text("status").notNull(), // 'success', 'failed'
+    fee: text("fee").notNull(), // Store as text to avoid precision issues
+    block: text("block").notNull(),
+    fromAddress: text("from_address"),
+    toAddress: text("to_address"),
+    amount: text("amount"),
+    tokenMint: text("token_mint"),
+  },
+  (transactions) => {
+    return {
+      signatureIndex: uniqueIndex("signature_index").on(transactions.signature),
+      userIdIndex: uniqueIndex("user_id_index").on(transactions.userId),
+    }
+  },
+)
 
 export const transactionsRelations = relations(transactions, ({ one }) => ({
   user: one(users, {
@@ -42,7 +58,7 @@ export const transactionsRelations = relations(transactions, ({ one }) => ({
 
 export const chatMessages = pgTable("chat_messages", {
   id: uuid("id").defaultRandom().primaryKey(),
-  userId: uuid("user_id")
+  userId: text("user_id")
     .notNull()
     .references(() => users.id),
   role: text("role").notNull(), // 'user' or 'assistant'
