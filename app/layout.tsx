@@ -3,7 +3,7 @@ import "@/app/globals.css"
 import { Mona_Sans as FontSans } from "next/font/google"
 import { cn } from "@/lib/utils"
 import { ThemeProvider } from "@/components/theme-provider"
-import { Toaster } from "@/components/ui/sonner" // Ensure this import is correct
+import { Toaster } from "@/components/ui/sonner"
 import { PrivyProviderWrapper } from "@/components/privy-provider-wrapper"
 import { WalletProvider } from "@/components/wallet-provider"
 import { siteConfig } from "@/config/site"
@@ -75,7 +75,7 @@ export const metadata: Metadata = {
     apple: "/apple-touch-icon.png",
   },
   manifest: `${siteConfig.url}/site.webmanifest`,
-    generator: 'v0.dev'
+  generator: "v0.dev",
 }
 
 const queryClient = new QueryClient()

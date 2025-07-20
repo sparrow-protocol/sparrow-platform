@@ -1,26 +1,27 @@
 "use client"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { useSelectedLayoutSegment } from "next/navigation"
 
 import { siteConfig } from "@/config/site"
 import { cn } from "@/lib/utils"
 import { Icons } from "@/components/ui/icons"
 
 export function MainNav() {
-  const pathname = usePathname()
+  const segment = useSelectedLayoutSegment()
 
   return (
     <div className="mr-4 hidden md:flex">
       <Link href="/" className="mr-6 flex items-center space-x-2">
-        <Icons.wallet className="h-6 w-6" />
+        <Icons.logo className="h-6 w-6" aria-hidden="true" />
         <span className="hidden font-bold sm:inline-block">{siteConfig.name}</span>
+        <span className="sr-only">Home</span>
       </Link>
-      <nav className="flex items-center gap-6 text-sm">
+      <nav className="flex items-center gap-6 text-sm font-medium">
         <Link
           href="/dashboard"
           className={cn(
             "transition-colors hover:text-foreground/80",
-            pathname === "/dashboard" ? "text-foreground" : "text-foreground/60",
+            segment === "dashboard" ? "text-foreground" : "text-foreground/60",
           )}
         >
           Dashboard
@@ -29,28 +30,36 @@ export function MainNav() {
           href="/swap"
           className={cn(
             "transition-colors hover:text-foreground/80",
-            pathname === "/swap" ? "text-foreground" : "text-foreground/60",
+            segment === "swap" ? "text-foreground" : "text-foreground/60",
           )}
         >
           Swap
         </Link>
         <Link
-          href="/chat"
+          href="/pay"
           className={cn(
             "transition-colors hover:text-foreground/80",
-            pathname === "/chat" ? "text-foreground" : "text-foreground/60",
+            segment === "pay" ? "text-foreground" : "text-foreground/60",
           )}
         >
-          AI Chat
+          Pay
         </Link>
         <Link
-          href="/settings"
+          href="/faucet"
           className={cn(
             "transition-colors hover:text-foreground/80",
-            pathname === "/settings" ? "text-foreground" : "text-foreground/60",
+            segment === "faucet" ? "text-foreground" : "text-foreground/60",
           )}
         >
-          Settings
+          Faucet
+        </Link>
+        <Link
+          href={siteConfig.links.github}
+          className={cn("hidden text-foreground/60 transition-colors hover:text-foreground/80 lg:block")}
+          target="_blank"
+          rel="noreferrer"
+        >
+          GitHub
         </Link>
       </nav>
     </div>

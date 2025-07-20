@@ -1,9 +1,5 @@
-export function formatNumber(value: number | string, options?: Intl.NumberFormatOptions, locale = "en-US"): string {
-  const numValue = typeof value === "string" ? Number.parseFloat(value) : value
-  if (isNaN(numValue)) {
-    return "N/A"
-  }
-  return new Intl.NumberFormat(locale, options).format(numValue)
+export function formatNumber(value: number, options?: Intl.NumberFormatOptions): string {
+  return new Intl.NumberFormat("en-US", options).format(value)
 }
 
 export function formatPercentage(value: number | string, options?: Intl.NumberFormatOptions, locale = "en-US"): string {

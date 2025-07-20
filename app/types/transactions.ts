@@ -3,3 +3,5 @@ import type { transactions } from "@/db/schema"
 
 export type SelectTransaction = InferSelectModel<typeof transactions>
 export type InsertTransaction = InferInsertModel<typeof transactions>
+
+export type TransactionType = "send" | "receive" | "swap" | "deposit" | "withdraw" | "unknown"

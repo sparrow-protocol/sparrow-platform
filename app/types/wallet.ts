@@ -1,8 +1,7 @@
 export interface WalletBalance {
   mintAddress: string
   tokenSymbol: string
-  tokenName: string
-  balance: number // In token units
+  balance: number
   usdValue: number | null
   iconUrl?: string
 }
